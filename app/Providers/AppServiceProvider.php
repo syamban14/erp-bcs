@@ -1,0 +1,44 @@
+<?php
+
+namespace App\Providers;
+
+use Illuminate\Support\ServiceProvider;
+
+class AppServiceProvider extends ServiceProvider
+{
+    /**
+     * Register any application services.
+     */
+    public function register(): void
+    {
+        //
+    }
+
+    /**
+     * Bootstrap any application services.
+     */
+    public function boot(): void
+    {
+        \Illuminate\Support\Facades\Gate::before(function ($user, $ability) {
+            return $user->hasRole('super_admin') ? true : null;
+        });
+
+        \Laravel\Sanctum\Sanctum::usePersonalAccessTokenModel(\App\Models\PersonalAccessToken::class);
+        
+        // Register Model Observers for automatic notifications
+        \App\Models\Leave::observe(\App\Observers\LeaveObserver::class);
+        \App\Models\PermissionRequest::observe(\App\Observers\PermissionRequestObserver::class);
+        \App\Models\OvertimeRequest::observe(\App\Observers\OvertimeRequestObserver::class);
+        \App\Models\OutstationRequest::observe(\App\Observers\OutstationRequestObserver::class);
+        
+        // Inject approval actions JavaScript into Filament pages
+        if (class_exists(\Filament\Facades\Filament::class)) {
+            \Filament\Facades\Filament::serving(function () {
+                \Filament\Facades\Filament::registerRenderHook(
+                    'body.end',
+                    fn (): string => view('filament.approval-actions')->render()
+                );
+            });
+        }
+    }
+}
