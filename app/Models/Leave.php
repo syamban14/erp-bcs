@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasApprovalFlow;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Leave extends Model
 {
-    use HasFactory;
+    use HasFactory, HasApprovalFlow;
 
     protected $fillable = [
         'user_id',
@@ -16,6 +17,7 @@ class Leave extends Model
         'end_date',
         'reason',
         'status',
+        'current_approval_level',
         'approved_by',
         'approved_at',
         'rejection_reason',
@@ -40,12 +42,12 @@ class Leave extends Model
 
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(MPresensi::class);
     }
     
     public function approver()
     {
-        return $this->belongsTo(User::class, 'approved_by');
+        return $this->belongsTo(MPresensi::class, 'approved_by');
     }
     
     /**
@@ -72,7 +74,7 @@ class Leave extends Model
         $type = strtolower($this->type);
         
         // Hanya cuti tahunan yang memotong quota
-        $annualLeaveTypes = ['tahunan', 'annual', 'annual_leave', 'cuti_tahunan'];
+        $annualLeaveTypes = ['tahunan', 'annual', 'annual_leave', 'cuti_tahunan', 'cuti tahunan'];
         
         return in_array($type, $annualLeaveTypes);
     }

@@ -3,26 +3,32 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\PermissionRequestResource\Pages;
+use App\Models\ApprovalFlow;
 use App\Models\PermissionRequest;
 use Filament\Forms;
-use Filament\Schemas\Schema;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
+
+use App\Filament\Concerns\FiltersBySubordinates;
 
 class PermissionRequestResource extends Resource
 {
+    use FiltersBySubordinates;
+
     protected static ?string $model = PermissionRequest::class;
 
-    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-document-text';
-    
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-document-text';
+
+    protected static ?string $navigationLabel = 'Permission Requests';
+
     public static function getNavigationGroup(): ?string
     {
-        return 'Absensi Management';
+        return 'Approvals';
     }
-    
+
     protected static ?int $navigationSort = 3;
 
     public static function form(Schema $schema): Schema
@@ -31,15 +37,20 @@ class PermissionRequestResource extends Resource
             ->schema([
                 Forms\Components\Select::make('user_id')
                     ->relationship('user', 'name')
+                    ->label('Employee')
                     ->disabled(),
                 Forms\Components\TextInput::make('type')
+                    ->label('Permission Type')
                     ->disabled(),
                 Forms\Components\DatePicker::make('start_date')
+                    ->label('Date')
                     ->disabled(),
                 Forms\Components\Textarea::make('reason')
+                    ->label('Reason')
                     ->columnSpanFull()
                     ->disabled(),
                 Forms\Components\TextInput::make('status')
+                    ->label('Status')
                     ->disabled(),
             ]);
     }
@@ -49,26 +60,53 @@ class PermissionRequestResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('user.name')
+                    ->label('Employee')
                     ->searchable()
                     ->sortable(),
+
                 Tables\Columns\TextColumn::make('type')
+                    ->label('Type')
                     ->badge()
                     ->color('info'),
+
                 Tables\Columns\TextColumn::make('start_date')
+                    ->label('Date')
                     ->date('d M Y')
                     ->sortable(),
+
                 Tables\Columns\TextColumn::make('time')
+                    ->label('Time')
                     ->time('H:i'),
+
                 Tables\Columns\TextColumn::make('reason')
+                    ->label('Reason')
                     ->limit(30),
-                Tables\Columns\TextColumn::make('status')
+
+                // ─── Approval Progress ─────────────────────────────────────
+                Tables\Columns\TextColumn::make('approval_progress')
+                    ->label('Approval Stage')
+                    ->getStateUsing(function ($record) {
+                        return $record->approval_progress_label;
+                    })
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'pending' => 'warning',
+                    ->color(fn ($record) => match ($record->status) {
                         'approved' => 'success',
                         'rejected' => 'danger',
+                        default    => 'warning',
                     }),
+
+                Tables\Columns\TextColumn::make('status')
+                    ->label('Status')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'pending'  => 'warning',
+                        'approved' => 'success',
+                        'rejected' => 'danger',
+                        default    => 'gray',
+                    }),
+
                 Tables\Columns\TextColumn::make('created_at')
+                    ->label('Submitted')
                     ->dateTime('d M Y H:i')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -77,10 +115,11 @@ class PermissionRequestResource extends Resource
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
-                        'pending' => 'Pending',
+                        'pending'  => 'Pending',
                         'approved' => 'Approved',
                         'rejected' => 'Rejected',
-                    ]),
+                    ])
+                    ->default('pending'),
             ])
             ->actions([
                 \Filament\Actions\ActionGroup::make([
@@ -89,34 +128,40 @@ class PermissionRequestResource extends Resource
                         ->icon('heroicon-o-check-circle')
                         ->color('success')
                         ->requiresConfirmation()
-                        ->visible(fn (PermissionRequest $record) => $record->status === 'pending')
-                        ->action(function (PermissionRequest $record) {
-                            $record->update([
-                                'status' => 'approved',
-                                'approved_by' => auth()->id(),
-                                'approved_at' => now(),
-                            ]);
+                        ->form([
+                            Forms\Components\Textarea::make('notes')->label('Notes (optional)')->rows(2),
+                        ])
+                        ->visible(fn (PermissionRequest $record) => $record->status === 'pending' && $record->canBeApprovedBy(auth()->user()))
+                        ->action(function (PermissionRequest $record, array $data) {
+                            $record->approve(auth()->user(), $data['notes'] ?? null);
+                            Notification::make()->title('✅ Approved!')->success()->send();
                         }),
 
                     \Filament\Actions\Action::make('reject')
                         ->label('Reject')
                         ->icon('heroicon-o-x-circle')
                         ->color('danger')
-                        ->requiresConfirmation()
                         ->form([
-                            Forms\Components\Textarea::make('rejection_reason')
-                                ->label('Reason for rejection')
-                                ->required(),
+                            Forms\Components\Textarea::make('reason')->label('Rejection Reason')->required()->rows(3),
                         ])
-                        ->visible(fn (PermissionRequest $record) => $record->status === 'pending')
+                        ->visible(fn (PermissionRequest $record) => $record->status === 'pending' && $record->canBeRejectedBy(auth()->user()))
                         ->action(function (PermissionRequest $record, array $data) {
-                            $record->update([
-                                'status' => 'rejected',
-                                'rejection_reason' => $data['rejection_reason'],
-                                'approved_by' => auth()->id(), // Tracker who rejected it
-                                'approved_at' => now(),
-                            ]);
+                            $record->reject(auth()->user(), $data['reason']);
+                            Notification::make()->title('❌ Rejected')->danger()->send();
                         }),
+
+                    \Filament\Actions\Action::make('history')
+                        ->label('Approval Chain')
+                        ->icon('heroicon-o-clock')
+                        ->color('gray')
+                        ->modalHeading('Approval Chain History')
+                        ->modalContent(function ($record) {
+                            $flows   = $record->approvalFlows()->with('approver')->get();
+                            $current = $record->current_approval_level ?? 1;
+                            $max     = count(ApprovalFlow::LEVEL_ROLES);
+                            return view('filament.approval-chain-modal', compact('flows', 'current', 'max', 'record'));
+                        })
+                        ->modalSubmitAction(false),
                 ]),
             ]);
     }

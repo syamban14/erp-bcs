@@ -25,7 +25,7 @@ class Notification extends Model
 
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(\App\Models\MPresensi::class);
     }
 
     public function markAsRead()

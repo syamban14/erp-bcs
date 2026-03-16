@@ -31,17 +31,17 @@ class ShiftSwapRequest extends Model
 
     public function requester()
     {
-        return $this->belongsTo(User::class, 'requester_id');
+        return $this->belongsTo(MPresensi::class, 'requester_id');
     }
 
     public function target()
     {
-        return $this->belongsTo(User::class, 'target_id');
+        return $this->belongsTo(MPresensi::class, 'target_id');
     }
 
     public function approver()
     {
-        return $this->belongsTo(User::class, 'approved_by');
+        return $this->belongsTo(MPresensi::class, 'approved_by');
     }
 
     public function requesterShift()

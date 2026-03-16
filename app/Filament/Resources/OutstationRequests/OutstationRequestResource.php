@@ -14,11 +14,22 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 
+use App\Filament\Concerns\FiltersBySubordinates;
+
 class OutstationRequestResource extends Resource
 {
+    use FiltersBySubordinates;
+
     protected static ?string $model = OutstationRequest::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+
+    protected static ?string $navigationLabel = 'Outstation Requests';
+
+    public static function getNavigationGroup(): ?string
+    {
+        return 'Approvals';
+    }
 
     public static function form(Schema $schema): Schema
     {

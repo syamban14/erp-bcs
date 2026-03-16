@@ -16,6 +16,13 @@ class PresenceResource extends Resource
 
     protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-clock';
 
+    protected static ?string $navigationLabel = 'Attendance Records';
+
+    public static function getNavigationGroup(): ?string
+    {
+        return 'Attendance';
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema

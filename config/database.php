@@ -96,6 +96,10 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => 'prefer',
+            'options' => [
+                PDO::ATTR_PERSISTENT => false,         // Jangan gunakan persistent connection
+                PDO::ATTR_TIMEOUT => 5,                // Timeout koneksi 5 detik
+            ],
         ],
 
         'pgsql_master' => [
@@ -111,6 +115,10 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => 'prefer',
+            'options' => [
+                PDO::ATTR_PERSISTENT => false,         // Jangan gunakan persistent connection
+                PDO::ATTR_TIMEOUT => 5,                // Timeout koneksi 5 detik
+            ],
         ],
 
         'sqlsrv' => [

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\OfficeLocations;
 
+use App\Filament\Concerns\SuperAdminOnly;
 use App\Filament\Resources\OfficeLocations\Pages\CreateOfficeLocation;
 use App\Filament\Resources\OfficeLocations\Pages\EditOfficeLocation;
 use App\Filament\Resources\OfficeLocations\Pages\ListOfficeLocations;
@@ -16,6 +17,8 @@ use Filament\Tables\Table;
 
 class OfficeLocationResource extends Resource
 {
+    use SuperAdminOnly;
+
     protected static ?string $model = OfficeLocation::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;

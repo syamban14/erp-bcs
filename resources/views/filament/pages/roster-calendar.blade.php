@@ -1,172 +1,112 @@
 <x-filament-panels::page>
-    <div class="space-y-6">
-        {{-- Header Controls --}}
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <div class="flex flex-col gap-4">
-                {{-- Month Navigation --}}
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                        <x-filament::button 
-                            wire:click="previousMonth" 
-                            size="sm" 
-                            color="gray"
-                            icon="heroicon-m-chevron-double-left">
-                            Prev Month
-                        </x-filament::button>
-                        
-                        <div class="text-xl font-bold text-gray-900 dark:text-white px-4 min-w-[200px] text-center">
-                            {{ $this->getMonthName() }} {{ $selectedYear }}
-                        </div>
-                        
-                        <x-filament::button 
-                            wire:click="nextMonth" 
-                            size="sm" 
-                            color="gray"
-                            icon-position="after"
-                            icon="heroicon-m-chevron-double-right">
-                            Next Month
-                        </x-filament::button>
-                    </div>
-                    
-                    {{-- Search --}}
-                    <div class="w-full lg:w-auto">
-                        <x-filament::input.wrapper class="min-w-[300px]">
-                            <x-filament::input
-                                type="search"
-                                wire:model.live.debounce.300ms="searchTerm"
-                                placeholder="🔍 Cari nama karyawan..."
-                                class="w-full"
-                            />
-                        </x-filament::input.wrapper>
-                    </div>
+    <x-filament::section>
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+            
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <x-filament::button wire:click="previousMonth" color="gray" size="sm">
+                    &Lt;
+                </x-filament::button>
+                <div style="font-weight: bold; font-size: 1.125rem; min-width: 150px; text-align: center;">
+                    {{ $this->getMonthName() }} {{ $selectedYear }}
                 </div>
-                
-                {{-- Week Navigation --}}
-                <div class="flex items-center justify-center gap-3 pt-2 border-t border-gray-200 dark:border-gray-700">
-                    <x-filament::button 
-                        wire:click="previousWeek" 
-                        size="sm" 
-                        color="primary"
-                        :disabled="$currentWeek <= 1"
-                        icon="heroicon-m-chevron-left">
-                        Prev Week
-                    </x-filament::button>
-                    
-                    <div class="flex items-center gap-2 px-6">
-                        <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                            Minggu {{ $currentWeek }} dari {{ $totalWeeks }}
-                        </span>
-                        <span class="text-sm text-gray-500 dark:text-gray-400">
-                            ({{ $weekInfo }})
-                        </span>
-                    </div>
-                    
-                    <x-filament::button 
-                        wire:click="nextWeek" 
-                        size="sm" 
-                        color="primary"
-                        :disabled="$currentWeek >= $totalWeeks"
-                        icon-position="after"
-                        icon="heroicon-m-chevron-right">
-                        Next Week
-                    </x-filament::button>
+                <x-filament::button wire:click="nextMonth" color="gray" size="sm">
+                    &Gt;
+                </x-filament::button>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <x-filament::button wire:click="previousWeek" color="gray" size="sm" :disabled="$currentWeek <= 1">
+                    &lt; Prev Week
+                </x-filament::button>
+                <div style="font-weight: 500; padding: 0 1rem; text-align: center; min-width: 120px;">
+                    Week {{ $currentWeek }} of {{ $totalWeeks }}
+                    <div style="font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem;">{{ $weekInfo }}</div>
                 </div>
+                <x-filament::button wire:click="nextWeek" color="gray" size="sm" :disabled="$currentWeek >= $totalWeeks">
+                    Next Week &gt;
+                </x-filament::button>
+            </div>
+            
+            <div>
+                <x-filament::input.wrapper>
+                    <x-filament::input
+                        type="search"
+                        wire:model.live.debounce.500ms="searchTerm"
+                        placeholder="Search employee..."
+                    />
+                </x-filament::input.wrapper>
             </div>
         </div>
+    </x-filament::section>
 
-        {{-- Color Legend --}}
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
-            <div class="flex flex-wrap items-center gap-6">
-                <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">Keterangan:</span>
-                <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 bg-yellow-100 border-2 border-yellow-400 rounded-md"></div>
-                    <span class="text-sm text-gray-700 dark:text-gray-300">Pagi (P)</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 bg-blue-100 border-2 border-blue-400 rounded-md"></div>
-                    <span class="text-sm text-gray-700 dark:text-gray-300">Siang (S)</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 bg-purple-100 border-2 border-purple-400 rounded-md"></div>
-                    <span class="text-sm text-gray-700 dark:text-gray-300">Malam (M)</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 bg-gray-200 border-2 border-gray-400 rounded-md"></div>
-                    <span class="text-sm text-gray-700 dark:text-gray-300">Off/Libur</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 bg-green-100 border-2 border-green-400 rounded-md"></div>
-                    <span class="text-sm text-gray-700 dark:text-gray-300">Lainnya</span>
-                </div>
-            </div>
-        </div>
-
-        {{-- Calendar Grid --}}
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full border-collapse" style="table-layout: fixed;">
-                    <thead>
-                        <tr class="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600">
-                            <th class="sticky left-0 z-20 bg-gray-100 dark:bg-gray-700 border-r-2 border-gray-300 dark:border-gray-600 p-5 text-left" style="width: 250px;">
-                                <span class="text-sm font-bold text-gray-700 dark:text-gray-200 uppercase tracking-wider">Karyawan</span>
+    <x-filament::section>
+        <div style="overflow-x: auto; padding-bottom: 0.5rem;">
+            <table style="width: 100%; font-size: 0.875rem; text-align: left; border-collapse: separate; border-spacing: 0;">
+                <thead>
+                    <tr>
+                        <th style="padding: 0.75rem 1rem; font-weight: 600; min-width: 200px; border-bottom: 1px solid rgba(107, 114, 128, 0.2); border-right: 1px solid rgba(107, 114, 128, 0.2); position: sticky; left: 0; background-color: rgba(107, 114, 128, 0.05); z-index: 10;">
+                            Employee
+                        </th>
+                        @foreach($datesData as $date)
+                            <th style="padding: 0.75rem 0.5rem; text-align: center; border-bottom: 1px solid rgba(107, 114, 128, 0.2); border-right: 1px solid rgba(107, 114, 128, 0.2); min-width: 80px; background-color: rgba(107, 114, 128, 0.05);">
+                                <div style="font-weight: bold; font-size: 1.125rem;">{{ $date['day'] }}</div>
+                                <div style="font-size: 0.75rem; opacity: 0.7; text-transform: uppercase;">{{ $date['dayName'] }}</div>
                             </th>
-                            @foreach($datesData as $dateInfo)
-                                <th class="border-l border-gray-200 dark:border-gray-600 p-4 text-center bg-gray-50 dark:bg-gray-700/50" style="width: 140px;">
-                                    <div class="font-bold text-gray-900 dark:text-white" style="font-size: 1.5rem;">{{ $dateInfo['day'] }}</div>
-                                    <div class="text-sm text-gray-500 dark:text-gray-400 font-medium uppercase mt-1">{{ $dateInfo['dayName'] }}</div>
-                                </th>
+                        @endforeach
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($employeesData as $employee)
+                        <tr>
+                            <td style="padding: 0.75rem 1rem; font-weight: 500; border-bottom: 1px solid rgba(107, 114, 128, 0.1); border-right: 1px solid rgba(107, 114, 128, 0.2); position: sticky; left: 0; background-color: var(--fi-bg-base, #fff); z-index: 10; white-space: nowrap;">
+                                {{ $employee['name'] }}
+                            </td>
+                            
+                            @foreach($datesData as $date)
+                                @php
+                                    $shift = $employee['shifts'][$date['full']] ?? null;
+                                    $isWeekend = in_array(strtolower($date['dayName']), ['sat', 'sun']);
+                                    $tdStyle = "padding: 0.25rem; border-bottom: 1px solid rgba(107, 114, 128, 0.1); border-right: 1px solid rgba(107, 114, 128, 0.2); text-align: center;";
+                                    if ($isWeekend) $tdStyle .= " background-color: rgba(156, 163, 175, 0.05);";
+                                @endphp
+                                <td style="{{ $tdStyle }}">
+                                    @if($shift)
+                                        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.35rem; border-radius: 0.375rem; border: 1px solid {{ $shift['color']['border'] }}; background-color: {{ $shift['color']['bg'] }}; color: {{ $shift['color']['text'] }};">
+                                            <span style="font-weight: 700; font-size: 0.75rem; line-height: 1;">{{ $shift['code'] }}</span>
+                                            @if(!$shift['is_off'])
+                                                <span style="font-size: 0.65rem; white-space: nowrap; margin-top: 0.15rem; font-weight: 500; opacity: 0.9;">
+                                                    {{ $shift['time_in'] }}-{{ $shift['time_out'] }}
+                                                </span>
+                                            @endif
+                                        </div>
+                                    @else
+                                        <div style="height: 2.25rem; width: 100%;"></div>
+                                    @endif
+                                </td>
                             @endforeach
                         </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($employeesData as $employee)
-                            <tr class="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                                <td class="sticky left-0 z-10 bg-white dark:bg-gray-800 border-r-2 border-gray-300 dark:border-gray-600 p-5">
-                                    <div class="font-semibold text-gray-900 dark:text-white text-base" title="{{ $employee['name'] }}">
-                                        {{ \Illuminate\Support\Str::limit($employee['name'], 28) }}
-                                    </div>
-                                </td>
-                                @foreach($datesData as $dateInfo)
-                                    @php
-                                        $shift = $employee['shifts'][$dateInfo['full']] ?? null;
-                                    @endphp
-                                    <td class="border-l border-gray-200 dark:border-gray-600 p-2.5">
-                                        @if($shift)
-                                            <div class="rounded-lg border-2 p-4 text-center transition-all hover:scale-105 cursor-pointer shadow-sm {{ $shift['color'] }}" style="min-height: 90px;">
-                                                <div class="font-bold text-gray-900 mb-2" style="font-size: 1.125rem;">{{ $shift['code'] }}</div>
-                                                @if(!$shift['is_off'])
-                                                    <div class="text-sm text-gray-600 font-medium" style="line-height: 1.6;">
-                                                        {{ $shift['time_in'] }}<br>{{ $shift['time_out'] }}
-                                                    </div>
-                                                @else
-                                                    <div class="text-sm text-gray-500 mt-1">Off</div>
-                                                @endif
-                                            </div>
-                                        @else
-                                            <div class="text-gray-300 dark:text-gray-600 text-center" style="padding: 35px 0; font-size: 1.25rem;">-</div>
-                                        @endif
-                                    </td>
-                                @endforeach
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="{{ count($datesData) + 1 }}" class="p-12 text-center">
-                                    <div class="flex flex-col items-center gap-3">
-                                        <x-heroicon-o-user-group class="w-16 h-16 text-gray-300 dark:text-gray-600" />
-                                        <p class="text-gray-500 dark:text-gray-400 text-lg">Tidak ada data karyawan</p>
-                                        <p class="text-gray-400 dark:text-gray-500 text-sm">Silakan import data roster terlebih dahulu</p>
-                                    </div>
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
+                    @empty
+                        <tr>
+                            <td colspan="{{ count($datesData) + 1 }}" style="padding: 2rem 1rem; text-align: center; opacity: 0.6;">
+                                No employees found or no schedules assigned for this period.
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </x-filament::section>
+    
+    <x-filament::section>
+        <div style="font-size: 0.85rem;">
+            <div style="font-weight: 600; margin-bottom: 0.75rem;">Shift Legend:</div>
+            <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+                <div style="display: flex; align-items: center;"><span style="width: 1.25rem; height: 1.25rem; border-radius: 0.25rem; border: 1px solid #fde047; margin-right: 0.4rem; background-color: #fef3c7;"></span> Pagi / Shift 1</div>
+                <div style="display: flex; align-items: center;"><span style="width: 1.25rem; height: 1.25rem; border-radius: 0.25rem; border: 1px solid #93c5fd; margin-right: 0.4rem; background-color: #dbeafe;"></span> Siang / Shift 2</div>
+                <div style="display: flex; align-items: center;"><span style="width: 1.25rem; height: 1.25rem; border-radius: 0.25rem; border: 1px solid #d8b4fe; margin-right: 0.4rem; background-color: #f3e8ff;"></span> Malam / Shift 3</div>
+                <div style="display: flex; align-items: center;"><span style="width: 1.25rem; height: 1.25rem; border-radius: 0.25rem; border: 1px solid #86efac; margin-right: 0.4rem; background-color: #dcfce7;"></span> Non-Shift / Normal</div>
+                <div style="display: flex; align-items: center;"><span style="width: 1.25rem; height: 1.25rem; border-radius: 0.25rem; border: 1px solid #d1d5db; margin-right: 0.4rem; background-color: #f3f4f6;"></span> Off / Libur</div>
             </div>
         </div>
-
-        {{-- Info Footer --}}
-        <div class="text-xs text-gray-500 dark:text-gray-400 text-center py-2">
-            {{ count($employeesData) }} karyawan • Minggu {{ $currentWeek }} dari {{ $totalWeeks }}
-        </div>
-    </div>
+    </x-filament::section>
 </x-filament-panels::page>

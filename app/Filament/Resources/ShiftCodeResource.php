@@ -16,7 +16,7 @@ class ShiftCodeResource extends Resource
 
     protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-clock';
     
-    protected static ?string $navigationLabel = 'Kode Shift';
+    protected static ?string $navigationLabel = 'Shift Codes';
 
     public static function getNavigationGroup(): ?string
     {

@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasApprovalFlow;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class OvertimeRequest extends Model
 {
-    use HasFactory;
+    use HasFactory, HasApprovalFlow;
 
     protected $fillable = [
         'user_id',
@@ -18,6 +19,7 @@ class OvertimeRequest extends Model
         'description',
         'attachment_path',
         'status',
+        'current_approval_level',
         'approved_by',
         'approved_at',
         'rejection_reason',
@@ -58,5 +60,15 @@ class OvertimeRequest extends Model
         }
         
         return asset('storage/' . $this->attachment_path);
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(MPresensi::class);
+    }
+    
+    public function approver()
+    {
+        return $this->belongsTo(MPresensi::class, 'approved_by');
     }
 }

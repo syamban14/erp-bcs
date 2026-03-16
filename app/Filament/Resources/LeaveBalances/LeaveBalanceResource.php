@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\LeaveBalances;
 
+use App\Filament\Concerns\SuperAdminOnly;
 use App\Filament\Resources\LeaveBalances\Pages\ManageLeaveBalances;
 use App\Models\LeaveBalance;
 use BackedEnum;
@@ -18,13 +19,20 @@ use Filament\Tables\Table;
 
 class LeaveBalanceResource extends Resource
 {
+    use SuperAdminOnly;
+
     protected static ?string $model = LeaveBalance::class;
     
-    protected static ?string $navigationLabel = 'Quota Cuti';
+    protected static ?string $navigationLabel = 'Leave Quotas';
     
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCalendar;
     
     protected static ?int $navigationSort = 6;
+
+    public static function getNavigationGroup(): ?string
+    {
+        return 'Settings';
+    }
 
     public static function form(Schema $schema): Schema
     {

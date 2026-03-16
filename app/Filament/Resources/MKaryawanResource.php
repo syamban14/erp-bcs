@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\SuperAdminOnly;
 use App\Filament\Resources\MKaryawanResource\Pages;
 use App\Models\MKaryawan;
 use App\Models\MPresensi;
@@ -14,7 +15,18 @@ use Filament\Tables;
 use Filament\Tables\Table;
 
 class MKaryawanResource extends Resource
-{
+{   
+    use SuperAdminOnly;
+
+    protected static ?string $navigationLabel = 'Employee Management';
+    protected static ?string $modelLabel = 'Employee';           // judul singular: New Employee
+    protected static ?string $pluralModelLabel = 'Employee Management'; // judul plural di halaman list
+
+    public static function getNavigationGroup(): ?string
+    {
+        return 'Master Data';
+    }
+
     protected static ?string $model = MKaryawan::class;
 
     protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-users';
@@ -53,18 +65,18 @@ class MKaryawanResource extends Resource
                         Forms\Components\TextInput::make('email')
                             ->email()
                             ->required()
+                            ->rules(['unique:pgsql_master.m_presensi,email'])
                             ->default(fn (MKaryawan $record) => $record->email),
                         Forms\Components\TextInput::make('password')
                             ->password()
                             ->required()
                             ->default('password123'),
-                        Forms\Components\Select::make('role')
-                            ->options([
-                                'user' => 'User Biasa',
-                                'supervisor' => 'Supervisor Shift',
-                            ])
-                            ->default('user')
-                            ->required(),
+                        Forms\Components\Select::make('office_location_id')
+                            ->label('Lokasi Kantor (Geofencing)')
+                            ->options(\App\Models\OfficeLocation::where('is_active', true)->pluck('name', 'id'))
+                            ->searchable()
+                            ->required()
+                            ->helperText('Wajib ditautkan ke area absen karyawan tersebut.'),
                     ])
                     ->action(function (MKaryawan $record, array $data) {
                         // Check local
@@ -78,7 +90,8 @@ class MKaryawanResource extends Resource
                             'name' => $record->nama_karyawan,
                             'email' => $data['email'],
                             'password' => Hash::make($data['password']),
-                            'role' => $data['role'], // Assumes role column exists (next step migration)
+                            'role' => 'user', 
+                            'office_location_id' => $data['office_location_id'],
                             'is_active' => true,
                         ]);
 

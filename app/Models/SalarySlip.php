@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class SalarySlip extends Model
 {
@@ -58,6 +59,32 @@ class SalarySlip extends Model
     public function calculateNetSalary(): float
     {
         return $this->calculateGrossSalary() - $this->calculateTotalDeductions();
+    }
+    
+    /**
+     * Get deductions for this salary slip
+     */
+    public function deductions(): HasMany
+    {
+        return $this->hasMany(SalaryDeduction::class);
+    }
+    
+    /**
+     * Get total deductions including dynamic deductions
+     */
+    public function getTotalDeductionsWithDynamicAttribute(): float
+    {
+        $staticDeductions = $this->calculateTotalDeductions();
+        $dynamicDeductions = $this->deductions()->sum('amount');
+        return $staticDeductions + $dynamicDeductions;
+    }
+    
+    /**
+     * Get net salary after all deductions
+     */
+    public function getNetSalaryAfterDeductionsAttribute(): float
+    {
+        return $this->calculateGrossSalary() - $this->total_deductions_with_dynamic;
     }
     
     /**

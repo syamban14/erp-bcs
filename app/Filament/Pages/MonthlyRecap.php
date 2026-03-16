@@ -27,6 +27,7 @@ class MonthlyRecap extends Page implements HasForms, HasTable
 
     public $month;
     public $year;
+    public $unit = null; // Initialize to null
     
     // Cache for recap data to avoid repeated queries per cell
     protected array $recapCache = [];
@@ -44,13 +45,29 @@ class MonthlyRecap extends Page implements HasForms, HasTable
         $this->form->fill([
             'month' => $this->month,
             'year' => $this->year,
+            'unit' => $this->unit,
         ]);
     }
     
     public function boot(RecapService $recapService) {
         $this->recapService = $recapService;
     }
-
+    
+    protected function getHeaderActions(): array
+    {
+        return [
+            \Filament\Actions\Action::make('export')
+                ->label('Export Excel')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->action(function () {
+                    return \Maatwebsite\Excel\Facades\Excel::download(
+                        new \App\Exports\MonthlyRecapExport($this->month, $this->year, $this->unit),
+                        'monthly_recap_' . $this->month . '_' . $this->year . '.xlsx'
+                    );
+                }),
+        ];
+    }
+    
     public function form(Schema $schema): Schema
     {
         return $schema
@@ -62,24 +79,41 @@ class MonthlyRecap extends Page implements HasForms, HasTable
                         9 => 'September', 10 => 'October', 11 => 'November', 12 => 'December',
                     ])
                     ->required()
-                    ->live(), // Auto reload table?
+                    ->live(),
                 Select::make('year')
                     ->options(array_combine(range(now()->year - 1, now()->year + 1), range(now()->year - 1, now()->year + 1)))
                     ->required()
                     ->live(),
+                Select::make('unit')
+                    ->label('Unit Kerja / Lokasi')
+                    ->options(\App\Models\OfficeLocation::pluck('name', 'id'))
+                    ->searchable()
+                    ->placeholder('Semua Unit')
+                    ->live(),
             ])
-            ->columns(2);
+            ->columns(3);
     }
 
     public function table(Table $table): Table
     {
         return $table
-            ->query(MPresensi::query()->orderBy('name'))
+            ->query(function () {
+                $query = MPresensi::query()->orderBy('name');
+                if ($this->unit) {
+                    $query->where('office_location_id', $this->unit);
+                }
+                return $query;
+            })
             ->columns([
                 TextColumn::make('name')
                     ->label('Nama Karyawan')
                     ->searchable()
                     ->sortable(),
+                    
+                TextColumn::make('officeLocation.name')
+                    ->label('Unit')
+                    ->sortable()
+                    ->toggleable(),
                     
                 TextColumn::make('total_hari_kerja')
                     ->label('Hari Kerja')
@@ -89,7 +123,8 @@ class MonthlyRecap extends Page implements HasForms, HasTable
                 TextColumn::make('total_kehadiran')
                     ->label('Hadir')
                     ->alignCenter()
-                    ->state(fn ($record) => $this->getRecap($record)['total_kehadiran']),
+                    ->state(fn ($record) => $this->getRecap($record)['total_kehadiran'])
+                    ->color(fn ($state, $record) => $state >= $this->getRecap($record)['total_hari_kerja'] ? 'success' : 'warning'),
 
                 TextColumn::make('durasi_kehadiran')
                     ->label('Durasi (Jam)')
@@ -103,11 +138,12 @@ class MonthlyRecap extends Page implements HasForms, HasTable
                     ->color(fn ($state) => $state > 0 ? 'warning' : 'gray'),
                     
                 TextColumn::make('cuti_special')
-                    ->label('Cuti Spesial')
-                    ->alignCenter()
-                    ->state(fn ($record) => $this->getRecap($record)['cuti_special'])
-                    ->color(fn ($state) => $state > 0 ? 'info' : 'gray'),
-                    
+                     ->label('Cuti Spesial')
+                     ->alignCenter()
+                     ->state(fn ($record) => $this->getRecap($record)['cuti_special'])
+                     ->color(fn ($state) => $state > 0 ? 'info' : 'gray')
+                     ->toggleable(isToggledHiddenByDefault: true),
+
                 TextColumn::make('cuti_sakit')
                     ->label('Sakit')
                     ->alignCenter()
@@ -115,9 +151,10 @@ class MonthlyRecap extends Page implements HasForms, HasTable
                     ->color(fn ($state) => $state > 0 ? 'danger' : 'gray'),
 
                 TextColumn::make('izin_jam')
-                    ->label('Izin (Kali)')
+                    ->label('Izin')
                     ->alignCenter()
-                    ->state(fn ($record) => $this->getRecap($record)['izin_jam']),
+                    ->state(fn ($record) => $this->getRecap($record)['izin_jam'])
+                    ->color(fn ($state) => $state > 0 ? 'warning' : 'gray'),
                     
                 TextColumn::make('tugas_luar')
                     ->label('Tugas Luar')
@@ -132,12 +169,13 @@ class MonthlyRecap extends Page implements HasForms, HasTable
                     ->weight('bold'),
 
                 TextColumn::make('lembur_jam')
-                    ->label('Lembur (Jam)')
+                    ->label('Lembur')
                     ->alignCenter()
-                    ->state(fn ($record) => $this->getRecap($record)['lembur_jam']),
+                    ->state(fn ($record) => $this->getRecap($record)['lembur_jam'])
+                    ->color(fn ($state) => $state > 0 ? 'info' : 'gray'),
                     
                 TextColumn::make('terlambat_jam')
-                    ->label('Telat (Jam)')
+                    ->label('Telat')
                     ->alignCenter()
                     ->state(fn ($record) => $this->getRecap($record)['terlambat_jam'])
                     ->color(fn ($state) => $state > 0 ? 'danger' : 'success'),
@@ -147,6 +185,18 @@ class MonthlyRecap extends Page implements HasForms, HasTable
                     ->alignCenter()
                     ->state(fn ($record) => $this->getRecap($record)['pulang_awal_jam'])
                     ->color(fn ($state) => $state > 0 ? 'warning' : 'success'),
+            ])
+            ->actions([
+                \Filament\Actions\Action::make('detail') // Changed to use `Action` class directly
+                    ->label('Detail')
+                    ->icon('heroicon-o-eye')
+                    ->modalContent(fn ($record) => view('filament.pages.monthly-recap-detail', [
+                        'record' => $record,
+                        'month' => $this->month,
+                        'year' => $this->year,
+                    ]))
+                    ->modalSubmitAction(false)
+                    ->modalCancelAction(fn ($action) => $action->label('Tutup')),
             ])
             ->striped();
     }

@@ -11,8 +11,15 @@ use Filament\Tables\Table;
 use Filament\Notifications\Notification;
 use Filament\Forms;
 
+use App\Filament\Concerns\FiltersBySubordinates;
+
 class ShiftSwapRequestResource extends Resource
 {
+    use FiltersBySubordinates;
+    
+    // Spesifik untuk shift swap, filternya berdasarkan requester_id
+    protected static string $subordinateFilterColumn = 'requester_id';
+
     protected static ?string $model = ShiftSwapRequest::class;
     
     protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-arrow-path';
@@ -67,7 +74,7 @@ class ShiftSwapRequestResource extends Resource
                     ]),
             ])
             ->actions([
-                Tables\Actions\Action::make('approve')
+                \Filament\Actions\Action::make('approve')
                     ->label('Approve')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
@@ -89,7 +96,7 @@ class ShiftSwapRequestResource extends Resource
                                 ->send();
                         }
                     }),
-                Tables\Actions\Action::make('reject')
+                \Filament\Actions\Action::make('reject')
                     ->label('Reject')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')

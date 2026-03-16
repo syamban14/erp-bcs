@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasApprovalFlow;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class OutstationRequest extends Model
 {
-    use HasFactory;
+    use HasFactory, HasApprovalFlow;
 
     protected $fillable = [
         'user_id',
@@ -22,6 +23,7 @@ class OutstationRequest extends Model
         'longitude',
         'attachment_path',
         'status',
+        'current_approval_level',
         'manager_approved_by',
         'manager_approved_at',
         'admin_approved_by',
@@ -45,12 +47,12 @@ class OutstationRequest extends Model
 
     public function managerApprover()
     {
-        return $this->belongsTo(User::class, 'manager_approved_by');
+        return $this->belongsTo(MPresensi::class, 'manager_approved_by');
     }
 
     public function adminApprover()
     {
-        return $this->belongsTo(User::class, 'admin_approved_by');
+        return $this->belongsTo(MPresensi::class, 'admin_approved_by');
     }
 
     /**

@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasApprovalFlow;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class PermissionRequest extends Model
 {
-    use HasFactory;
+    use HasFactory, HasApprovalFlow;
 
     protected $table = 'permission_requests';
 
@@ -19,6 +20,7 @@ class PermissionRequest extends Model
         'reason',
         'time',
         'status',
+        'current_approval_level',
         'approved_by',
         'approved_at',
         'rejection_reason',
@@ -43,12 +45,12 @@ class PermissionRequest extends Model
 
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(MPresensi::class);
     }
 
     public function approver()
     {
-        return $this->belongsTo(User::class, 'approved_by');
+        return $this->belongsTo(MPresensi::class, 'approved_by');
     }
     
     /**

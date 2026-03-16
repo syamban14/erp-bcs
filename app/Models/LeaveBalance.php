@@ -27,7 +27,7 @@ class LeaveBalance extends Model
      */
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(\App\Models\MPresensi::class);
     }
 
     /**
@@ -65,7 +65,7 @@ class LeaveBalance extends Model
     /**
      * Get or create balance for user and year
      */
-    public static function getOrCreateForUser(User $user, int $year): self
+    public static function getOrCreateForUser(MPresensi $user, int $year): self
     {
         return self::firstOrCreate(
             [
@@ -82,7 +82,7 @@ class LeaveBalance extends Model
     /**
      * Get current year balance for user
      */
-    public static function getCurrentYearBalance(User $user): self
+    public static function getCurrentYearBalance(MPresensi $user): self
     {
         return self::getOrCreateForUser($user, date('Y'));
     }

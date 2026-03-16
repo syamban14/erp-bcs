@@ -148,16 +148,16 @@ class RosterCalendar extends Page
     
     private function getShiftColor($code)
     {
-        if (!$code) return 'bg-white';
+        if (!$code) return ['bg' => 'transparent', 'border' => 'transparent', 'text' => 'inherit'];
         
         $firstChar = substr($code, 0, 1);
         
         return match($firstChar) {
-            'P' => 'bg-yellow-100 border-yellow-300',
-            'S' => 'bg-blue-100 border-blue-300',
-            'M' => 'bg-purple-100 border-purple-300',
-            'X', 'O' => 'bg-gray-100 border-gray-300',
-            default => 'bg-green-100 border-green-300',
+            'P' => ['bg' => '#fef3c7', 'border' => '#fde047', 'text' => '#854d0e'],
+            'S' => ['bg' => '#dbeafe', 'border' => '#93c5fd', 'text' => '#1e40af'],
+            'M' => ['bg' => '#f3e8ff', 'border' => '#d8b4fe', 'text' => '#6b21a8'],
+            'X', 'O' => ['bg' => '#f3f4f6', 'border' => '#d1d5db', 'text' => '#374151'],
+            default => ['bg' => '#dcfce7', 'border' => '#86efac', 'text' => '#166534'],
         };
     }
     

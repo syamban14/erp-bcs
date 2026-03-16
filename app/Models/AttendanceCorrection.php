@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasApprovalFlow;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class AttendanceCorrection extends Model
 {
-    use HasFactory;
+    use HasFactory, HasApprovalFlow;
 
     protected $fillable = [
         'user_id',
@@ -17,6 +18,7 @@ class AttendanceCorrection extends Model
         'reason',
         'evidence',
         'status',
+        'current_approval_level',
         'approved_by',
         'approved_at',
         'rejection_reason',
@@ -39,11 +41,11 @@ class AttendanceCorrection extends Model
 
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(\App\Models\MPresensi::class);
     }
 
     public function approver()
     {
-        return $this->belongsTo(User::class, 'approved_by');
+        return $this->belongsTo(\App\Models\MPresensi::class, 'approved_by');
     }
 }

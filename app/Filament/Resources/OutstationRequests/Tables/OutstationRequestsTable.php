@@ -2,9 +2,11 @@
 
 namespace App\Filament\Resources\OutstationRequests\Tables;
 
+use App\Models\ApprovalFlow;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
+use Filament\Forms;
+use Filament\Notifications\Notification;
 use Filament\Tables\Table;
 
 class OutstationRequestsTable
@@ -14,41 +16,62 @@ class OutstationRequestsTable
         return $table
             ->columns([
                 \Filament\Tables\Columns\TextColumn::make('user.name')
-                    ->label('Karyawan')
+                    ->label('Employee')
                     ->searchable()
                     ->sortable(),
+
                 \Filament\Tables\Columns\TextColumn::make('task_type')
-                    ->label('Jenis Tugas')
+                    ->label('Task Type')
                     ->badge()
                     ->colors([
                         'primary' => 'Perjalanan Dinas',
-                        'info' => 'Pelatihan',
+                        'info'    => 'Pelatihan',
                     ]),
+
                 \Filament\Tables\Columns\TextColumn::make('start_date')
-                    ->label('Tanggal')
+                    ->label('Date')
                     ->date('d M Y')
                     ->description(fn ($record) => $record->start_time . ' - ' . $record->end_time)
                     ->sortable(),
+
                 \Filament\Tables\Columns\TextColumn::make('location')
-                    ->label('Lokasi')
+                    ->label('Location')
                     ->limit(20)
                     ->tooltip(fn ($record) => $record->location),
+
+                // ─── Approval Progress (4-level) ───────────────────────────
+                \Filament\Tables\Columns\TextColumn::make('approval_progress')
+                    ->label('Approval Stage')
+                    ->getStateUsing(function ($record) {
+                        if ($record->status === 'approved') return 'Fully Approved';
+                        if ($record->status === 'rejected') {
+                            $level = $record->current_approval_level ?? 1;
+                            $label = ApprovalFlow::LEVEL_LABELS[$level] ?? "Level {$level}";
+                            return "Rejected @ {$label}";
+                        }
+                        $level = $record->current_approval_level ?? 1;
+                        $max   = count(ApprovalFlow::LEVEL_ROLES);
+                        $label = ApprovalFlow::LEVEL_LABELS[$level] ?? "Level {$level}";
+                        return "Awaiting {$label} ({$level}/{$max})";
+                    })
+                    ->badge()
+                    ->color(fn ($record) => match ($record->status) {
+                        'approved' => 'success',
+                        'rejected' => 'danger',
+                        default    => 'warning',
+                    }),
+
                 \Filament\Tables\Columns\TextColumn::make('status')
+                    ->label('Status')
                     ->badge()
                     ->colors([
                         'warning' => 'pending',
-                        'info' => 'approved_manager',
                         'success' => 'approved',
-                        'danger' => 'rejected',
-                    ])
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'pending' => 'Pending',
-                        'approved_manager' => 'Mgr Approved',
-                        'approved' => 'Approved',
-                        'rejected' => 'Rejected',
-                        default => $state,
-                    }),
+                        'danger'  => 'rejected',
+                    ]),
+
                 \Filament\Tables\Columns\TextColumn::make('created_at')
+                    ->label('Submitted')
                     ->dateTime('d M Y H:i')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -56,80 +79,83 @@ class OutstationRequestsTable
             ->filters([
                 \Filament\Tables\Filters\SelectFilter::make('status')
                     ->options([
-                        'pending' => 'Pending',
-                        'approved_manager' => 'Manager Approved',
+                        'pending'  => 'Pending',
                         'approved' => 'Approved',
                         'rejected' => 'Rejected',
-                    ]),
+                    ])
+                    ->default('pending'),
+
                 \Filament\Tables\Filters\SelectFilter::make('task_type')
+                    ->label('Task Type')
                     ->options([
                         'Perjalanan Dinas' => 'Perjalanan Dinas',
-                        'Pelatihan' => 'Pelatihan',
+                        'Pelatihan'        => 'Pelatihan',
                     ]),
             ])
             ->actions([
                 \Filament\Actions\ActionGroup::make([
                     \Filament\Actions\ViewAction::make(),
-                    \Filament\Actions\EditAction::make(),
-                    
-                    // Approve as Manager
-                    \Filament\Actions\Action::make('approve_manager')
-                        ->label('Approve (Manager)')
-                        ->icon('heroicon-o-check')
-                        ->color('info')
-                        ->requiresConfirmation()
-                        ->visible(fn ($record) => $record->status === 'pending')
-                        ->action(function ($record) {
-                            $record->update([
-                                'status' => 'approved_manager',
-                                'manager_approved_by' => auth()->id(),
-                                'manager_approved_at' => now(),
-                            ]);
-                        }),
 
-                    // Final Approve
-                    \Filament\Actions\Action::make('approve_final')
-                        ->label('Approve (Final)')
+                    // ─── APPROVE ──────────────────────────────────────────
+                    \Filament\Actions\Action::make('approve')
+                        ->label('Approve')
                         ->icon('heroicon-o-check-circle')
                         ->color('success')
                         ->requiresConfirmation()
-                        ->visible(fn ($record) => in_array($record->status, ['pending', 'approved_manager']))
-                        ->action(function ($record) {
-                            $record->update([
-                                'status' => 'approved',
-                                'admin_approved_by' => auth()->id(),
-                                'admin_approved_at' => now(),
-                                // If jumping from pending, set manager approval too? 
-                                // Maybe simpler to just set admin approval and status=approved.
-                            ]);
+                        ->modalHeading('Approve Outstation Request')
+                        ->form([
+                            Forms\Components\Textarea::make('notes')
+                                ->label('Notes (optional)')
+                                ->rows(2),
+                        ])
+                        ->visible(fn ($record) => $record->status === 'pending' && $record->canBeApprovedBy(auth()->user()))
+                        ->action(function ($record, array $data) {
+                            $record->approve(auth()->user(), $data['notes'] ?? null);
+                            $fresh = $record->fresh();
+                            $msg   = $fresh->status === 'approved'
+                                ? '✅ Outstation Request Fully Approved!'
+                                : '✅ Approved — Forwarded to next level';
+                            Notification::make()->title($msg)->success()->send();
                         }),
 
-                    // Reject
+                    // ─── REJECT ───────────────────────────────────────────
                     \Filament\Actions\Action::make('reject')
                         ->label('Reject')
                         ->icon('heroicon-o-x-circle')
                         ->color('danger')
-                        ->requiresConfirmation()
                         ->form([
-                            \Filament\Forms\Components\Textarea::make('rejection_reason')
-                                ->label('Alasan Penolakan')
-                                ->required(),
+                            Forms\Components\Textarea::make('reason')
+                                ->label('Rejection Reason')
+                                ->required()
+                                ->rows(3),
                         ])
-                        ->visible(fn ($record) => !in_array($record->status, ['approved', 'rejected']))
+                        ->modalHeading('Reject Outstation Request')
+                        ->visible(fn ($record) => $record->status === 'pending' && $record->canBeRejectedBy(auth()->user()))
                         ->action(function ($record, array $data) {
-                            $record->update([
-                                'status' => 'rejected',
-                                'rejection_reason' => $data['rejection_reason'],
-                                'admin_approved_by' => auth()->id(), 
-                                'admin_approved_at' => now(),
-                            ]);
+                            $record->reject(auth()->user(), $data['reason']);
+                            Notification::make()->title('❌ Request Rejected')->danger()->send();
                         }),
+
+                    // ─── HISTORY ──────────────────────────────────────────
+                    \Filament\Actions\Action::make('history')
+                        ->label('Approval Chain')
+                        ->icon('heroicon-o-clock')
+                        ->color('gray')
+                        ->modalHeading('Approval Chain History')
+                        ->modalContent(function ($record) {
+                            $flows   = $record->approvalFlows()->with('approver')->get();
+                            $current = $record->current_approval_level ?? 1;
+                            $max     = count(ApprovalFlow::LEVEL_ROLES);
+                            return view('filament.approval-chain-modal', compact('flows', 'current', 'max', 'record'));
+                        })
+                        ->modalSubmitAction(false),
                 ]),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),
-            ]);
+            ])
+            ->defaultSort('created_at', 'desc');
     }
 }

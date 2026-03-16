@@ -13,7 +13,16 @@ class ManageMPresensis extends ManageRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make(),
+            Actions\CreateAction::make()
+                ->mutateFormDataUsing(function (array $data): array {
+                    if (isset($data['karyawan_id'])) {
+                        $karyawan = \App\Models\MKaryawan::find($data['karyawan_id']);
+                        if ($karyawan) {
+                            $data['name'] = $karyawan->nama_karyawan;
+                        }
+                    }
+                    return $data;
+                }),
         ];
     }
 }
