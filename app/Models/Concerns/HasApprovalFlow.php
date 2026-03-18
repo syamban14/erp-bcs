@@ -141,7 +141,8 @@ trait HasApprovalFlow
                 \App\Services\FcmService::sendNotification(
                     $this->user->fcm_token,
                     "{$typeLabel} Disetujui! ✅",
-                    "{$typeLabel} Anda telah disetujui oleh {$approver->name}." . ($notes ? " (Catatan: {$notes})" : "")
+                    "{$typeLabel} Anda telah disetujui oleh {$approver->name}." . ($notes ? " (Catatan: {$notes})" : ""),
+                    ['type' => 'leave']
                 );
             }
         } catch (\Exception $e) {}
@@ -187,7 +188,8 @@ trait HasApprovalFlow
                 \App\Services\FcmService::sendNotification(
                     $this->user->fcm_token,
                     "{$typeLabel} Ditolak ❌",
-                    "{$typeLabel} Anda ditolak oleh {$rejector->name}. Alasan: {$reason}"
+                    "{$typeLabel} Anda ditolak oleh {$rejector->name}. Alasan: {$reason}",
+                    ['type' => 'leave']
                 );
             }
         } catch (\Exception $e) {}
@@ -256,10 +258,14 @@ trait HasApprovalFlow
                         elseif ($this instanceof \App\Models\PermissionRequest) $typeLabel = 'Pengajuan Izin';
                         elseif ($this instanceof \App\Models\AttendanceCorrection) $typeLabel = 'Koreksi Absen';
 
+                        $flow = $this->approvalFlows()->where('level', 1)->first();
+                        $approvalId = $flow ? 'af_' . $flow->id : '';
+
                         \App\Services\FcmService::sendNotification(
                             array_values(array_unique($approversTokens)),
                             $typeLabel,
-                            "Karyawan {$this->user->name} mengirim {$typeLabel}. Harap periksa di menu Approval."
+                            "Karyawan {$this->user->name} mengirim {$typeLabel}. Harap periksa di menu Approval.",
+                            ['type' => 'approval', 'id' => $approvalId]
                         );
                     }
                 }

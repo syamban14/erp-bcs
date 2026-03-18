@@ -63,7 +63,7 @@ class FcmService
                         'data' => array_merge([
                             'click_action' => 'FLUTTER_NOTIFICATION_CLICK',
                             'sound' => 'default',
-                        ], $data),
+                        ], array_map('strval', $data)),
                     ]
                 ]);
 

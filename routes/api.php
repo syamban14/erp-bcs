@@ -129,6 +129,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Supervisor Approval (Mobile)
     Route::get('/approvals', [App\Http\Controllers\Api\v1\ApprovalController::class, 'index']);
+    Route::get('/approvals/{id}', [App\Http\Controllers\Api\v1\ApprovalController::class, 'show']);
     Route::post('/approvals/{id}/status', [App\Http\Controllers\Api\v1\ApprovalController::class, 'updateStatus']);
 
     // Announcements & Birthdays

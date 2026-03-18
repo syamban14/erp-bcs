@@ -11,13 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::connection('pgsql_master')->table('m_presensi', function (Blueprint $table) {
-            $table->unsignedBigInteger('office_location_id')->nullable()->after('email');
-            
-            // Note: Cannot add foreign key constraint across different databases
-            // office_locations is in presensi_db, m_presensi is in pgsql_master
-            // Foreign key will be enforced at application level
-        });
+        if (Schema::connection('pgsql_master')->hasTable('m_presensi')) {
+            Schema::connection('pgsql_master')->table('m_presensi', function (Blueprint $table) {
+                if (!Schema::connection('pgsql_master')->hasColumn('m_presensi', 'office_location_id')) {
+                    $table->unsignedBigInteger('office_location_id')->nullable()->after('email');
+                }
+            });
+        }
     }
 
     /**
@@ -25,8 +25,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::connection('pgsql_master')->table('m_presensi', function (Blueprint $table) {
-            $table->dropColumn('office_location_id');
-        });
+        if (Schema::connection('pgsql_master')->hasTable('m_presensi') && Schema::connection('pgsql_master')->hasColumn('m_presensi', 'office_location_id')) {
+            Schema::connection('pgsql_master')->table('m_presensi', function (Blueprint $table) {
+                $table->dropColumn('office_location_id');
+            });
+        }
     }
 };

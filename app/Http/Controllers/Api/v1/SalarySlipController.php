@@ -78,10 +78,24 @@ class SalarySlipController extends Controller
 
         // Add dynamic deductions (e.g. Loan Installments)
         foreach ($slip->deductions as $deduction) {
+            $meta = null;
+            
+            // Format meta khusus untuk cicilan kasbon (installment ke berapa dari berapa)
+            if ($deduction->type === \App\Models\SalaryDeduction::TYPE_LOAN_INSTALLMENT) {
+                $installment = \App\Models\LoanInstallment::where('salary_slip_id', $slip->id)
+                    ->where('loan_id', $deduction->reference_id)
+                    ->first();
+                    
+                if ($installment && $installment->loan) {
+                    $meta = "({$installment->installment_number}/{$installment->loan->tenor_months})";
+                }
+            }
+
             $deductions[] = [
                 'label' => $deduction->description ?? $deduction->type,
                 'amount' => $deduction->amount,
                 'type' => $deduction->type,
+                'meta' => $meta,
             ];
         }
 

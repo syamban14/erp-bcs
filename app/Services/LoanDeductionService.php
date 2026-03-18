@@ -47,7 +47,7 @@ class LoanDeductionService
             $deduction = SalaryDeduction::create([
                 'salary_slip_id' => $salarySlip->id,
                 'type' => SalaryDeduction::TYPE_LOAN_INSTALLMENT,
-                'description' => "Potongan Kasbon - Cicilan ke-{$installment->installment_number} dari {$loan->tenor}",
+                'description' => "Angsuran Kasbon",
                 'amount' => $installment->amount,
                 'reference_id' => $loan->id,
             ]);
@@ -97,7 +97,7 @@ class LoanDeductionService
             if ($installment) {
                 $deductions[] = [
                     'type' => 'LOAN_INSTALLMENT',
-                    'description' => "Potongan Kasbon - Cicilan ke-{$installment->installment_number}",
+                    'description' => "Angsuran Kasbon",
                     'amount' => $installment->amount,
                     'loan_id' => $loan->id,
                     'installment_id' => $installment->id,

@@ -30,6 +30,7 @@ class AppServiceProvider extends ServiceProvider
         \App\Models\PermissionRequest::observe(\App\Observers\PermissionRequestObserver::class);
         \App\Models\OvertimeRequest::observe(\App\Observers\OvertimeRequestObserver::class);
         \App\Models\OutstationRequest::observe(\App\Observers\OutstationRequestObserver::class);
+        \App\Models\Loan::observe(\App\Observers\LoanObserver::class);
         
         // Inject approval actions JavaScript into Filament pages
         if (class_exists(\Filament\Facades\Filament::class)) {

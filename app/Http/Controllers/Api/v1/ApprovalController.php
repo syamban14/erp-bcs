@@ -91,15 +91,20 @@ class ApprovalController extends Controller
             ], 403);
         }
         
+        $statusParam = $request->input('status', 'pending');
+        
         // Sertakan relasi approvable dan nested user dari approvable
         $query = ApprovalFlow::where('level', 1)
-            ->where('status', 'pending')
             ->with([
                 'approvable',
                 'approvable.user',
                 'approvable.user.karyawan',
             ])
             ->orderByDesc('created_at');
+
+        if ($statusParam !== 'all') {
+            $query->where('status', $statusParam);
+        }
 
         $flows = $query->get();
         
@@ -200,10 +205,25 @@ class ApprovalController extends Controller
             ];
         })->filter()->values();
 
+        $page = $request->input('page', 1);
+        $perPage = $request->input('limit', 20);
+        $paginated = new \Illuminate\Pagination\LengthAwarePaginator(
+            $approvals->forPage($page, $perPage)->values(),
+            $approvals->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
+
         return response()->json([
             'success' => true,
             'message' => 'Berhasil mengambil daftar persetujuan',
-            'data'    => $approvals,
+            'data'    => $paginated->items(),
+            'meta'    => [
+                'total'        => $paginated->total(),
+                'current_page' => $paginated->currentPage(),
+                'last_page'    => $paginated->lastPage(),
+            ],
         ]);
     }
 
@@ -215,8 +235,8 @@ class ApprovalController extends Controller
     public function updateStatus(Request $request, string $id)
     {
         $request->validate([
-            'status' => 'required|in:DISETUJUI,DITOLAK',
-            'notes'  => 'nullable|string|max:500',
+            'status'         => 'required|in:approved,rejected',
+            'rejection_note' => 'nullable|string|max:500',
         ]);
 
         // Lepas prefix "af_" bila ada
@@ -260,9 +280,9 @@ class ApprovalController extends Controller
             ], 422);
         }
 
-        $notes = $request->input('notes');
+        $notes = $request->input('rejection_note', $request->input('notes'));
 
-        if ($request->input('status') === 'DISETUJUI') {
+        if ($request->input('status') === 'approved') {
             $approvable->approve($mobileUser, $notes);
 
             Log::info('APPROVAL [Mobile Approve]: ' . get_class($approvable) . '#' . $approvable->id . ' disetujui oleh mobile user #' . $mobileUser->id . ' (' . $mobileUser->name . ')');
@@ -270,9 +290,13 @@ class ApprovalController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Status persetujuan berhasil diperbarui',
+                'data'    => [
+                    'id'     => $id,
+                    'status' => 'approved',
+                ]
             ]);
         } else {
-            // DITOLAK
+            // rejected
             $reason = $notes ?? 'Ditolak melalui aplikasi mobile.';
             $approvable->reject($mobileUser, $reason);
 
@@ -281,8 +305,138 @@ class ApprovalController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Status persetujuan berhasil diperbarui',
+                'data'    => [
+                    'id'     => $id,
+                    'status' => 'rejected',
+                ]
             ]);
         }
+    }
+
+    /**
+     * GET /api/approvals/{id}
+     * Detail persetujuan
+     */
+    public function show(Request $request, string $id)
+    {
+        // Lepas prefix "af_" bila ada
+        $flowId = str_starts_with($id, 'af_') ? substr($id, 3) : $id;
+
+        /** @var ApprovalFlow|null $flow */
+        $flow = ApprovalFlow::with([
+            'approvable',
+            'approvable.user',
+            'approvable.user.karyawan'
+        ])->find($flowId);
+
+        if (!$flow) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Data pengajuan tidak ditemukan.',
+            ], 404);
+        }
+
+        $approvable = $flow->approvable;
+        if (!$approvable) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Data pengajuan tidak ditemukan.',
+            ], 404);
+        }
+
+        /** @var \App\Models\MPresensi $mobileUser */
+        $mobileUser = $request->user();
+        $role = $mobileUser->role ?? 'user';
+        $globalRoles = ['hr', 'direktur', 'superadmin'];
+        
+        $myTitle = $mobileUser->karyawan?->title;
+        $bawahanTitles = collect([]);
+        if ($myTitle) {
+            $allSubT = [];
+            $bawahanTitles = collect($this->getSubordinateTitles($myTitle, $allSubT));
+        }
+
+        if (!in_array($role, $globalRoles)) {
+            $submitterTitle = $approvable->user?->karyawan?->title;
+            if (!$submitterTitle || !$bawahanTitles->contains($submitterTitle)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anda tidak memiliki akses untuk melihat pengajuan ini.',
+                ], 403);
+            }
+        }
+
+        // Susun response data
+        $submitter = $approvable->user ?? null;
+        $karyawan  = optional($submitter)->karyawan ?? null;
+
+        $employeeName = optional($karyawan)->nama_karyawan ?? optional($submitter)->name ?? 'Unknown';
+        $employeeId   = optional($karyawan)->nip ?? optional($karyawan)->id ?? optional($submitter)->id ?? '-';
+        $division     = optional($karyawan)->dept_id ?? optional($submitter)->role ?? 'N/A';
+
+        $modelClass = get_class($approvable);
+        $typeLabel  = self::TYPE_LABELS[$modelClass] ?? 'Pengajuan';
+
+        if ($approvable instanceof Leave) {
+            $typeLabel = 'Cuti ' . ucfirst($approvable->type ?? '');
+            $dateRange = $this->formatDateRange($approvable->start_date, $approvable->end_date);
+            $duration  = $approvable->calculateLeaveDays() . ' Hari Kerja';
+            $additionalInfo = null;
+            $submissionDate = optional($approvable->created_at)->translatedFormat('d M Y');
+        } elseif ($approvable instanceof OvertimeRequest) {
+            $lembur = $approvable->overtime_date ?? null;
+            $typeLabel  = 'Lembur' . ($approvable->type ? ' ' . ucfirst($approvable->type) : '');
+            $dateRange  = null;
+            $duration   = ($approvable->duration_hours ?? 0) . ' Jam';
+            $additionalInfo = optional($lembur)->format('d M Y');
+            $submissionDate = optional($approvable->created_at)->translatedFormat('d M Y');
+        } elseif ($approvable instanceof PermissionRequest) {
+            $typeLabel  = 'Izin ' . ucfirst($approvable->type ?? '');
+            $dateRange  = $this->formatDateRange($approvable->start_date, $approvable->end_date);
+            $duration   = null;
+            $additionalInfo = $dateRange;
+            $submissionDate = optional($approvable->created_at)->translatedFormat('d M Y');
+        } elseif ($approvable instanceof OutstationRequest) {
+            $typeLabel  = 'Perjalanan Dinas';
+            $dateRange  = $this->formatDateRange($approvable->start_date, $approvable->end_date);
+            $duration   = null;
+            $additionalInfo = optional($approvable->destination)->destination ?? null;
+            $submissionDate = optional($approvable->created_at)->translatedFormat('d M Y');
+        } else {
+            $dateRange  = null;
+            $duration   = null;
+            $additionalInfo = null;
+            $submissionDate = optional($approvable->created_at)->translatedFormat('d M Y');
+        }
+
+        $attachmentName = null;
+        $attachmentUrl  = null;
+        if (isset($approvable->attachment_path) && $approvable->attachment_path) {
+            $attachmentName = basename($approvable->attachment_path);
+            $attachmentUrl  = url('storage/' . $approvable->attachment_path);
+        }
+
+        $approvalId = 'af_' . $flow->id;
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'id'              => $approvalId,
+                'employee_name'   => $employeeName,
+                'employee_id'     => 'ID: ' . $employeeId,
+                'division'        => $division,
+                'type'            => $typeLabel,
+                'status'          => self::STATUS_LABELS[$approvable->status] ?? strtoupper($approvable->status),
+                'submission_date' => $submissionDate,
+                'date_range'      => $dateRange,
+                'duration'        => $duration,
+                'additional_info' => $additionalInfo,
+                'reason'          => $approvable->reason ?? $approvable->notes ?? null,
+                'attachment_name' => $attachmentName,
+                'attachment_url'  => $attachmentUrl,
+                'profile_image_url' => null,
+            ],
+        ]);
     }
 
     /**
