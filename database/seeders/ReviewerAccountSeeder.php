@@ -2,13 +2,10 @@
 
 namespace Database\Seeders;
 
-use App\Models\MKaryawan;
 use App\Models\MPresensi;
 use App\Models\UserDevice;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Log;
 
 class ReviewerAccountSeeder extends Seeder
 {
@@ -26,45 +23,16 @@ class ReviewerAccountSeeder extends Seeder
         $this->command->info('  Membuat Akun Reviewer (Google Play / App Store)...');
         $this->command->info('==========================================================');
 
-        // ─────────────────────────────────────────────
-        // Konfigurasi Akun Reviewer
-        // ─────────────────────────────────────────────
-        $reviewerNip  = 'ID-9999';
-        $reviewerEmail = 'reviewer@bcsgroup.com';
+        $reviewerEmail    = 'reviewer@bcsgroup.com';
         $reviewerPassword = 'Reviewer123!';
-        $reviewerPin  = '123456';
+        $reviewerPin      = '123456';
 
-        // ─────────────────────────────────────────────
-        // 1. Buat atau perbarui record MKaryawan (m_karyawan)
-        // ─────────────────────────────────────────────
-        $karyawan = MKaryawan::updateOrCreate(
-            // Kondisi pencarian (cari berdasarkan NIP agar tidak duplikat)
-            ['nip' => $reviewerNip],
-            // Data yang akan diisi / di-update
-            [
-                'nip'           => $reviewerNip,
-                'nama_karyawan' => 'Google Reviewer',
-                'email'         => $reviewerEmail,
-                'dept_id'       => null, // Tidak masuk departemen manapun
-                'div_id'        => null,
-                'title'         => null,
-                'level'         => null,
-                'grade'         => null,
-                'status'        => 'active',
-            ]
-        );
-
-        $this->command->info("✅ m_karyawan: ID={$karyawan->id}, NIP={$karyawan->nip}");
-
-        // ─────────────────────────────────────────────
-        // 2. Buat atau perbarui record MPresensi (m_presensi)
-        // ─────────────────────────────────────────────
+        // 1. Buat atau perbarui record di m_presensi
+        //    karyawan_id = null karena ini bukan karyawan nyata
         $user = MPresensi::updateOrCreate(
-            // Kondisi pencarian
             ['email' => $reviewerEmail],
-            // Data yang akan diisi / di-update
             [
-                'karyawan_id'     => $karyawan->id,
+                'karyawan_id'     => null,
                 'name'            => 'Google Reviewer',
                 'email'           => $reviewerEmail,
                 'password'        => Hash::make($reviewerPassword),
@@ -81,46 +49,32 @@ class ReviewerAccountSeeder extends Seeder
 
         $this->command->info("✅ m_presensi: ID={$user->id}, Email={$user->email}");
 
-        // ─────────────────────────────────────────────
-        // 3. Bersihkan Device Binding sehingga reviewer
-        //    bisa login dari device mana saja (first login)
-        // ─────────────────────────────────────────────
+        // 2. Bersihkan Device Binding agar reviewer bisa login dari device mana saja
         $deleted = UserDevice::where('user_id', $user->id)->delete();
         if ($deleted > 0) {
-            $this->command->warn("🔄 Device binding untuk akun reviewer telah dibersihkan ({$deleted} record).");
+            $this->command->warn("🔄 Device binding dibersihkan ({$deleted} record).");
         }
 
-        // ─────────────────────────────────────────────
-        // 4. Bersihkan semua Sanctum token lama
-        // ─────────────────────────────────────────────
+        // 3. Bersihkan semua token Sanctum lama
         $user->tokens()->delete();
 
-        // ─────────────────────────────────────────────
-        // 5. Tampilkan ringkasan
-        // ─────────────────────────────────────────────
+        // 4. Tampilkan ringkasan
         $this->command->info('');
         $this->command->info('📋 RINGKASAN AKUN REVIEWER:');
         $this->command->table(
             ['Field', 'Value'],
             [
-                ['Nama',          'Google Reviewer'],
-                ['NIP / ID',      $reviewerNip],
-                ['Email Login',   $reviewerEmail],
-                ['Password',      $reviewerPassword],
-                ['PIN Aplikasi',  $reviewerPin],
-                ['Role',          'karyawan'],
-                ['Status',        'AKTIF ✅'],
-                ['Device Bound',  'Tidak (bisa login dari device baru)'],
+                ['Nama',         'Google Reviewer'],
+                ['Email Login',  $reviewerEmail],
+                ['Password',     $reviewerPassword],
+                ['PIN Aplikasi', $reviewerPin],
+                ['Role',         'karyawan'],
+                ['Status',       'AKTIF ✅'],
+                ['Device Bound', 'Tidak (bisa login dari device baru)'],
             ]
         );
         $this->command->info('==========================================================');
         $this->command->info('  Selesai! Akun Reviewer siap digunakan.');
         $this->command->info('==========================================================');
-
-        Log::info('ReviewerAccountSeeder: Akun reviewer berhasil dibuat/diperbarui.', [
-            'karyawan_id' => $karyawan->id,
-            'user_id'     => $user->id,
-            'email'       => $reviewerEmail,
-        ]);
     }
 }
