@@ -38,7 +38,7 @@ class ReviewerAccountSeeder extends Seeder
                 'password'        => Hash::make($reviewerPassword),
                 'pin'             => Hash::make($reviewerPin),
                 'role'            => 'karyawan',
-                'employment_type' => 'permanent',
+                'employment_type' => 'regular',
                 'is_active'       => true,
                 'phone'           => null,
                 'photo'           => null,
