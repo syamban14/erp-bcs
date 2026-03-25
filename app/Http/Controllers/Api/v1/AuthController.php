@@ -17,12 +17,19 @@ class AuthController extends Controller
 {
     public function login(Request $request)
     {
+        // List email akun khusus yang dikecualikan dari device binding (contoh: reviewer store)
+        $bypassDeviceEmails = [
+            'reviewer@bcsgroup.com',
+        ];
+
+        $isReviewerAccount = in_array(strtolower($request->email), $bypassDeviceEmails);
+
         $request->validate([
             'email'        => 'required|email',
             'password'     => 'required',
-            'device_id'    => 'required|string',  // WAJIB: untuk strict device binding
-            'device_name'  => 'nullable|string',  // Opsional: nama HP ("Samsung Galaxy S23", dll)
-            'device_token' => 'nullable|string',  // Opsional: FCM token untuk push notification
+            'device_id'    => $isReviewerAccount ? 'nullable|string' : 'required|string',
+            'device_name'  => 'nullable|string',
+            'device_token' => 'nullable|string',
         ]);
 
         // ── 1. Autentikasi Email + Password ──
@@ -41,49 +48,57 @@ class AuthController extends Controller
         }
 
         // ── 2. Strict Device Binding (One User, One Device) ──
-        $registeredDevice = UserDevice::where('user_id', $user->id)->first();
+        // Akun reviewer (store review) dikecualikan dari pembatasan device ini.
+        if (!$isReviewerAccount) {
+            $registeredDevice = UserDevice::where('user_id', $user->id)->first();
 
-        if ($registeredDevice) {
-            // Device sudah terdaftar — harus cocok
-            if ($registeredDevice->device_id !== $request->device_id) {
-                Log::warning('SECURITY [Strict Device Binding]: Login ditolak — device tidak cocok', [
-                    'user_id'           => $user->id,
-                    'user_email'        => $user->email,
-                    'registered_device' => substr($registeredDevice->device_id, 0, 10) . '...',
-                    'incoming_device'   => substr($request->device_id, 0, 10) . '...',
-                    'ip'                => $request->ip(),
+            if ($registeredDevice) {
+                // Device sudah terdaftar — harus cocok
+                if ($registeredDevice->device_id !== $request->device_id) {
+                    Log::warning('SECURITY [Strict Device Binding]: Login ditolak — device tidak cocok', [
+                        'user_id'           => $user->id,
+                        'user_email'        => $user->email,
+                        'registered_device' => substr($registeredDevice->device_id, 0, 10) . '...',
+                        'incoming_device'   => substr($request->device_id, 0, 10) . '...',
+                        'ip'                => $request->ip(),
+                    ]);
+
+                    return response()->json([
+                        'meta' => [
+                            'code'    => 403,
+                            'status'  => 'error',
+                            'message' => 'Login ditolak: perangkat tidak dikenal',
+                        ],
+                        'data' => [
+                            'error_code' => 'DEVICE_MISMATCH',
+                            'message'    => 'Akun Anda terikat dengan HP lain. Silakan hubungi Admin untuk reset perangkat jika Anda ganti HP.',
+                        ],
+                    ], 403);
+                }
+
+                // Cocok — update last_active_at
+                $registeredDevice->update(['last_active_at' => now()]);
+
+            } else {
+                // Belum ada device terdaftar — ini login pertama, register otomatis
+                UserDevice::create([
+                    'user_id'        => $user->id,
+                    'device_id'      => $request->device_id,
+                    'device_name'    => $request->device_name ?? 'Unknown Device',
+                    'public_key'     => $request->public_key ?? 'NOT_PROVIDED',
+                    'last_active_at' => now(),
                 ]);
 
-                return response()->json([
-                    'meta' => [
-                        'code'    => 403,
-                        'status'  => 'error',
-                        'message' => 'Login ditolak: perangkat tidak dikenal',
-                    ],
-                    'data' => [
-                        'error_code' => 'DEVICE_MISMATCH',
-                        'message'    => 'Akun Anda terikat dengan HP lain. Silakan hubungi Admin untuk reset perangkat jika Anda ganti HP.',
-                    ],
-                ], 403);
+                Log::info('SECURITY [Device Registered]: Device baru terdaftar saat login', [
+                    'user_id'     => $user->id,
+                    'device_id'   => substr($request->device_id, 0, 10) . '...',
+                    'device_name' => $request->device_name ?? 'Unknown Device',
+                ]);
             }
-
-            // Cocok — update last_active_at
-            $registeredDevice->update(['last_active_at' => now()]);
-
         } else {
-            // Belum ada device terdaftar — ini login pertama, register otomatis
-            UserDevice::create([
-                'user_id'        => $user->id,
-                'device_id'      => $request->device_id,
-                'device_name'    => $request->device_name ?? 'Unknown Device',
-                'public_key'     => $request->public_key ?? 'NOT_PROVIDED',
-                'last_active_at' => now(),
-            ]);
-
-            Log::info('SECURITY [Device Registered]: Device baru terdaftar saat login', [
-                'user_id'     => $user->id,
-                'device_id'   => substr($request->device_id, 0, 10) . '...',
-                'device_name' => $request->device_name ?? 'Unknown Device',
+            Log::info('AUTH [Reviewer Bypass]: Login tanpa device binding', [
+                'email' => $user->email,
+                'ip'    => $request->ip(),
             ]);
         }
 
