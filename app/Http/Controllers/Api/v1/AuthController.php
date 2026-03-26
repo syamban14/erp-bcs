@@ -19,7 +19,7 @@ class AuthController extends Controller
     {
         // List email akun khusus yang dikecualikan dari device binding (contoh: reviewer store)
         $bypassDeviceEmails = [
-            'reviewer@bcsgroup.com',
+            'reviewer@tester.com',
         ];
 
         $isReviewerAccount = in_array(strtolower($request->email), $bypassDeviceEmails);

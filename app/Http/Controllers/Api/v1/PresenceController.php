@@ -105,6 +105,12 @@ class PresenceController extends Controller
      */
     private function validateAntiFraud(Request $request, $user)
     {
+        // Akun reviewer (Google Play/App Store) dikecualikan dari semua cek anti-fraud
+        $bypassEmails = ['reviewer@tester.com'];
+        if (in_array(strtolower($user->email ?? ''), $bypassEmails)) {
+            return true;
+        }
+
         // 1. Cek Device ID
         $registeredDevice = \App\Models\UserDevice::where('user_id', $user->id)
             ->where('device_id', $request->device_id)
@@ -151,8 +157,10 @@ class PresenceController extends Controller
         }
         
         // ✅ GEOFENCING VALIDATION
+        // Akun reviewer dikecualikan dari pengecekan lokasi
+        $bypassEmails = ['reviewer@tester.com'];
         $user->load('officeLocation');
-        if ($user->officeLocation) {
+        if ($user->officeLocation && !in_array(strtolower($user->email ?? ''), $bypassEmails)) {
             $geofencing = app(\App\Services\GeofencingService::class);
             
             $validation = $geofencing->validate(
@@ -332,8 +340,10 @@ class PresenceController extends Controller
         ]);
         
         // ✅ GEOFENCING VALIDATION
+        // Akun reviewer dikecualikan dari pengecekan lokasi
+        $bypassEmails = ['reviewer@tester.com'];
         $user->load('officeLocation');
-        if ($user->officeLocation) {
+        if ($user->officeLocation && !in_array(strtolower($user->email ?? ''), $bypassEmails)) {
             $geofencing = app(\App\Services\GeofencingService::class);
             
             $validation = $geofencing->validate(

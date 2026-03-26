@@ -23,7 +23,7 @@ class ReviewerAccountSeeder extends Seeder
         $this->command->info('  Membuat Akun Reviewer (Google Play / App Store)...');
         $this->command->info('==========================================================');
 
-        $reviewerEmail    = 'reviewer@bcsgroup.com';
+        $reviewerEmail    = 'reviewer@tester.com';
         $reviewerPassword = 'Reviewer123!';
         $reviewerPin      = '123456';
 
