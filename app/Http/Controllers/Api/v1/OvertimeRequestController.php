@@ -14,27 +14,65 @@ class OvertimeRequestController extends Controller
      */
     public function store(Request $request)
     {
+        // Deteksi dini: file melebihi batas upload PHP (sebelum Laravel sempat memvalidasi)
+        // Ini penyebab khas 500 error saat upload dari device nyata
+        if (empty($_FILES) && $request->isMethod('post') && $request->header('Content-Length') > 0) {
+            $maxSize = ini_get('upload_max_filesize');
+            \Log::warning('OvertimeRequest: Upload file melebihi batas PHP', [
+                'content_length' => $request->header('Content-Length'),
+                'upload_max_filesize' => $maxSize,
+                'user_id' => optional($request->user())->id,
+            ]);
+            return response()->json([
+                'status'  => 'error',
+                'message' => "File terlalu besar. Batas upload server adalah {$maxSize}. Harap kompres file terlebih dahulu.",
+            ], 422);
+        }
+
         $validator = Validator::make($request->all(), [
-            'start_date' => 'required|date|date_format:Y-m-d',
-            'end_date' => 'required|date|date_format:Y-m-d|after_or_equal:start_date',
-            'start_time' => 'required|date_format:H:i',
-            'end_time' => 'required|date_format:H:i',
+            'start_date'  => 'required|date|date_format:Y-m-d',
+            'end_date'    => 'required|date|date_format:Y-m-d|after_or_equal:start_date',
+            'start_time'  => 'required|date_format:H:i',
+            'end_time'    => 'required|date_format:H:i',
             'description' => 'required|string|max:1000',
-            'attachment' => 'required|file|mimes:pdf,jpg,jpeg,png|max:5120', // 5MB
+            // Attachment dibuat opsional agar tidak 500 jika file gagal terkirim
+            // Validasi ukuran dilonggarkan ke 20MB mengikuti kemampuan kamera HP modern
+            'attachment'  => 'nullable|file|mimes:pdf,jpg,jpeg,png,heic,heif|max:20480',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
-                'status' => 'error',
+                'status'  => 'error',
                 'message' => 'Validasi gagal',
-                'errors' => $validator->errors()
+                'errors'  => $validator->errors()
             ], 422);
         }
 
-        // Upload file
-        $file = $request->file('attachment');
-        $filename = time() . '_' . $file->getClientOriginalName();
-        $path = $file->storeAs('overtime-attachments', $filename, 'public');
+        // Upload file (jika ada)
+        $path = null;
+        if ($request->hasFile('attachment')) {
+            try {
+                $file     = $request->file('attachment');
+                $filename = time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $file->getClientOriginalName());
+                $path     = $file->storeAs('overtime-attachments', $filename, 'public');
+
+                \Log::info('OvertimeRequest: File berhasil diupload', [
+                    'user_id'   => $request->user()->id,
+                    'filename'  => $filename,
+                    'size'      => $file->getSize(),
+                    'mime'      => $file->getMimeType(),
+                ]);
+            } catch (\Exception $e) {
+                \Log::error('OvertimeRequest: Gagal upload file', [
+                    'user_id' => optional($request->user())->id,
+                    'error'   => $e->getMessage(),
+                ]);
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Gagal mengupload file lampiran. Coba kompres file dan kirim ulang.',
+                ], 500);
+            }
+        }
 
         // Create overtime request
         $overtime = OvertimeRequest::create([
