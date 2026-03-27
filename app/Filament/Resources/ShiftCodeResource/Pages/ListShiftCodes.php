@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\Resources\ShiftCodes\Pages;
+namespace App\Filament\Resources\ShiftCodeResource\Pages;
 
-use App\Filament\Resources\ShiftCodes\ShiftCodeResource;
+use App\Filament\Resources\ShiftCodeResource;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 
