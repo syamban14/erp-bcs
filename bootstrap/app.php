@@ -12,7 +12,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Middleware untuk autentikasi export via query param ?token=
+        $middleware->alias([
+            'query.token' => \App\Http\Middleware\QueryTokenAuth::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

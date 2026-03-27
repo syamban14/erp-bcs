@@ -154,4 +154,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
 });
 
+// Export Rekap Absensi — autentikasi via query ?token= (untuk Flutter url_launcher)
+Route::get('/v1/recaps/export', [\App\Http\Controllers\Api\v1\RecapController::class, 'export'])
+    ->middleware('query.token');
+
 require __DIR__.'/debug.php';
