@@ -153,4 +153,75 @@ class SalarySlipController extends Controller
             ]
         ]);
     }
+    /**
+     * Export slip gaji ke PDF.
+     *
+     * GET /api/v1/salaries/{id}/export?format=pdf&token=TOKEN
+     * Auth via query ?token= (kompatibel dengan Flutter url_launcher)
+     */
+    public function export($id, Request $request)
+    {
+        $user = $request->user();
+
+        // Ambil slip + pastikan milik user yang login
+        $slip = SalarySlip::with(['deductions' => function ($q) {
+            $q->with('loan');
+        }])->where('id', $id)->first();
+
+        if (!$slip) {
+            return response()->json([
+                'meta' => ['code' => 404, 'status' => 'error', 'message' => 'Slip gaji tidak ditemukan.'],
+                'data' => null,
+            ], 404);
+        }
+
+        // Keamanan: karyawan hanya boleh download miliknya sendiri
+        if ($slip->user_id !== $user->id) {
+            return response()->json([
+                'meta' => ['code' => 403, 'status' => 'error', 'message' => 'Anda tidak memiliki akses ke dokumen ini.'],
+                'data' => null,
+            ], 403);
+        }
+
+        // Kalkulasi potongan dinamis (kasbon, dll)
+        $dynamicDeductions = [];
+        foreach ($slip->deductions as $ded) {
+            $meta = null;
+            if ($ded->type === \App\Models\SalaryDeduction::TYPE_LOAN_INSTALLMENT) {
+                $installment = \App\Models\LoanInstallment::where('salary_slip_id', $slip->id)
+                    ->where('loan_id', $ded->reference_id)
+                    ->with('loan')
+                    ->first();
+                if ($installment && $installment->loan) {
+                    $meta = "({$installment->installment_number}/{$installment->loan->tenor_months})";
+                }
+            }
+            $dynamicDeductions[] = [
+                'label'  => $ded->description ?? $ded->type,
+                'amount' => $ded->amount,
+                'meta'   => $meta,
+            ];
+        }
+
+        $totalDeductions = $slip->total_deductions_with_dynamic;
+        $netSalary       = $slip->net_salary_after_deductions;
+        $periodLabel     = $slip->period->locale('id')->isoFormat('MMMM YYYY');
+        $filename        = 'Slip_Gaji_' . $slip->period->format('F_Y');
+
+        \Log::info('SalarySlipExport', ['user_id' => $user->id, 'slip_id' => $id]);
+
+        if (!class_exists(\Barryvdh\DomPDF\Facade\Pdf::class)) {
+            return response()->json([
+                'meta' => ['code' => 500, 'status' => 'error', 'message' => 'Library PDF belum terinstall. Jalankan composer install di server.'],
+                'data' => null,
+            ], 500);
+        }
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.salary_slip_pdf',
+            compact('slip', 'periodLabel', 'dynamicDeductions', 'totalDeductions', 'netSalary')
+        );
+        $pdf->setPaper('A4', 'portrait');
+
+        return $pdf->download("{$filename}.pdf");
+    }
 }

@@ -158,4 +158,8 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::get('/v1/recaps/export', [\App\Http\Controllers\Api\v1\RecapController::class, 'export'])
     ->middleware('query.token');
 
+// Export Slip Gaji — autentikasi via query ?token=
+Route::get('/v1/salaries/{id}/export', [\App\Http\Controllers\Api\v1\SalarySlipController::class, 'export'])
+    ->middleware('query.token');
+
 require __DIR__.'/debug.php';
