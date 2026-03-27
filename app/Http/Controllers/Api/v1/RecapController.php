@@ -305,6 +305,13 @@ class RecapController extends Controller
 
     private function exportPdf($filename, $user, $karyawan, $periodLabel, $summary, $dailyRecords)
     {
+        if (!class_exists(\Barryvdh\DomPDF\Facade\Pdf::class)) {
+            return response()->json([
+                'meta' => ['code' => 500, 'status' => 'error', 'message' => 'Library PDF belum terinstall di server. Jalankan: composer install'],
+                'data' => null,
+            ], 500);
+        }
+
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.recap_pdf',
             compact('user', 'karyawan', 'periodLabel', 'summary', 'dailyRecords')
         );
