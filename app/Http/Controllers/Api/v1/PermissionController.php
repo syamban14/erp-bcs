@@ -27,7 +27,9 @@ class PermissionController extends Controller
                     'reason' => $permission->reason,
                     'status' => $permission->status,
                     'time' => $permission->time,
-                    'attachment_path' => $permission->attachment_path, // Added
+                    'attachment_url' => $permission->attachment_path
+                        ? url('/api/v1/files/' . $permission->attachment_path)
+                        : null, // URL proxy API — tidak perlu symlink, cukup token
                     'created_at' => $permission->created_at->toISOString(),
                 ];
             });

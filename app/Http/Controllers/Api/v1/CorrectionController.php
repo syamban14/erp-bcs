@@ -29,7 +29,9 @@ class CorrectionController extends Controller
                     'time' => $correction->time,
                     'reason' => $correction->reason,
                     'status' => $correction->status,
-                    'evidence_url' => $correction->evidence_url, // Added
+                    'evidence_url' => $correction->evidence
+                        ? url('/api/v1/files/' . $correction->evidence)
+                        : null, // URL proxy API — tidak perlu symlink, cukup token
                     'created_at' => $correction->created_at->toISOString(),
                 ];
             });

@@ -136,6 +136,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/announcements', [App\Http\Controllers\Api\v1\AnnouncementController::class, 'index']);
     Route::post('/announcements/read', [App\Http\Controllers\Api\v1\AnnouncementController::class, 'markAsRead']);
     Route::post('/announcements/greet', [App\Http\Controllers\Api\v1\AnnouncementController::class, 'greet']);
+
+    // File Proxy — streaming file upload langsung dari storage (tanpa bergantung symlink/nginx)
+    // Atasan bisa akses file bukti karyawan via endpoint ini menggunakan token mereka
+    Route::get('/files/{path}', [\App\Http\Controllers\Api\v1\FileController::class, 'serve'])
+        ->where('path', '.*');
 });
 
     // Admin Routes
