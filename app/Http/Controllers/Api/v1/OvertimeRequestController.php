@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\v1;
 
 use App\Http\Controllers\Controller;
 use App\Models\OvertimeRequest;
+use App\Services\OverlapValidator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -45,6 +46,20 @@ class OvertimeRequestController extends Controller
                 'status'  => 'error',
                 'message' => 'Validasi gagal',
                 'errors'  => $validator->errors()
+            ], 422);
+        }
+
+        // ── Cek tumpang tindih pengajuan lintas-modul ──
+        $conflict = OverlapValidator::check(
+            $request->user()->id,
+            $request->start_date,
+            $request->end_date,
+            exclude: 'overtime'
+        );
+        if ($conflict) {
+            return response()->json([
+                'meta' => ['code' => 422, 'status' => 'error', 'message' => $conflict],
+                'data' => null,
             ], 422);
         }
 

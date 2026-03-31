@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\v1;
 
 use App\Http\Controllers\Controller;
 use App\Models\PermissionRequest;
+use App\Services\OverlapValidator;
 use Illuminate\Http\Request;
 
 class PermissionController extends Controller
@@ -59,6 +60,20 @@ class PermissionController extends Controller
         ]);
         
         $user = $request->user();
+
+        // ── Cek tumpang tindih pengajuan lintas-modul ──
+        $conflict = OverlapValidator::check(
+            $user->id,
+            $request->start_date,
+            $request->end_date,
+            exclude: 'permission'
+        );
+        if ($conflict) {
+            return response()->json([
+                'meta' => ['code' => 422, 'status' => 'error', 'message' => $conflict],
+                'data' => null,
+            ], 422);
+        }
 
         $attachmentPath = null;
         if ($request->hasFile('attachment')) {

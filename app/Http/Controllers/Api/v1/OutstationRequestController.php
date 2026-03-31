@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\v1;
 
 use App\Http\Controllers\Controller;
 use App\Models\OutstationRequest;
+use App\Services\OverlapValidator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -28,6 +29,20 @@ class OutstationRequestController extends Controller
         ]);
 
         $user = $request->user();
+
+        // ── Cek tumpang tindih pengajuan lintas-modul ──
+        $conflict = OverlapValidator::check(
+            $user->id,
+            $validated['start_date'],
+            $validated['end_date'],
+            exclude: 'outstation'
+        );
+        if ($conflict) {
+            return response()->json([
+                'meta' => ['code' => 422, 'status' => 'error', 'message' => $conflict],
+                'data' => null,
+            ], 422);
+        }
 
         // Upload file if provided
         $attachmentPath = null;
