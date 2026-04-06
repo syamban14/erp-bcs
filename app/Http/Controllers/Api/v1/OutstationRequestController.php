@@ -35,7 +35,7 @@ class OutstationRequestController extends Controller
             $user->id,
             $validated['start_date'],
             $validated['end_date'],
-            exclude: 'outstation'
+            excludeModule: 'outstation'
         );
         if ($conflict) {
             return response()->json([

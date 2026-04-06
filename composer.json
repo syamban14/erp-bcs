@@ -18,6 +18,8 @@
         "laravel/tinker": "*",
         "livewire/volt": "*",
         "maatwebsite/excel": "*",
+        "opcodesio/log-viewer": "^3.24",
+        "spatie/laravel-activitylog": "^4.12",
         "spatie/laravel-permission": "*"
     },
     "require-dev": {

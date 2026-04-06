@@ -66,7 +66,7 @@ class PermissionController extends Controller
             $user->id,
             $request->start_date,
             $request->end_date,
-            exclude: 'permission'
+            excludeModule: 'permission'
         );
         if ($conflict) {
             return response()->json([

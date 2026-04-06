@@ -35,7 +35,7 @@ class LeaveController extends Controller
             $user->id,
             $request->start_date,
             $request->end_date,
-            exclude: 'leave'
+            excludeModule: 'leave'
         );
         if ($conflict) {
             return response()->json([

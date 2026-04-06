@@ -16,6 +16,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'query.token' => \App\Http\Middleware\QueryTokenAuth::class,
         ]);
+        
+        // Catat error API 4xx/5xx ke api_error_logs
+        $middleware->api(append: [
+            \App\Http\Middleware\ApiErrorLogger::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

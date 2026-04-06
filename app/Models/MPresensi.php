@@ -9,10 +9,12 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
 
 class MPresensi extends Authenticatable implements FilamentUser
 {
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable, LogsActivity;
 
     protected $connection = 'pgsql_master';
     protected $table = 'm_presensi';
@@ -117,7 +119,7 @@ class MPresensi extends Authenticatable implements FilamentUser
     public function canAccessPanel(Panel $panel): bool
     {
         // Hanya yang bukan 'user' biasa yang boleh masuk ke Admin Panel
-        return in_array($this->role, ['superadmin', 'direktur', 'hr', 'manager', 'supervisor']);
+        return in_array($this->role, ['superadmin', 'superhyperadmin', 'direktur', 'hr', 'manager', 'supervisor']);
     }
     
     public function officeLocation()
@@ -190,5 +192,13 @@ class MPresensi extends Authenticatable implements FilamentUser
         $year = $year ?? date('Y');
         $balance = \App\Models\LeaveBalance::getOrCreateForUser($this, $year);
         $balance->restoreQuota($days);
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logAll()
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
     }
 }

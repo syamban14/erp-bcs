@@ -9,6 +9,7 @@ use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use App\Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
+use Filament\Navigation\NavigationItem;
 use Filament\Support\Colors\Color;
 use Filament\Widgets\AccountWidget;
 use Filament\Widgets\FilamentInfoWidget;
@@ -35,6 +36,14 @@ class AdminPanelProvider extends PanelProvider
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([
                 Dashboard::class,
+            ])
+            ->navigationItems([
+                NavigationItem::make('Native Logs (Opcodes)')
+                    ->url('/log-viewer', shouldOpenInNewTab: true)
+                    ->icon('heroicon-o-document-magnifying-glass')
+                    ->group('System Monitor')
+                    ->sort(101)
+                    ->visible(fn (): bool => auth()->check() && strtolower(auth()->user()->role) === 'superhyperadmin'),
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([

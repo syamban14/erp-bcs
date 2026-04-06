@@ -5,10 +5,12 @@ namespace App\Models;
 use App\Models\Concerns\HasApprovalFlow;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
 
 class Leave extends Model
 {
-    use HasFactory, HasApprovalFlow;
+    use HasFactory, HasApprovalFlow, LogsActivity;
 
     protected $fillable = [
         'user_id',
@@ -77,5 +79,13 @@ class Leave extends Model
         $annualLeaveTypes = ['tahunan', 'annual', 'annual_leave', 'cuti_tahunan', 'cuti tahunan'];
         
         return in_array($type, $annualLeaveTypes);
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logAll()
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
     }
 }

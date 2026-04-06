@@ -20,7 +20,12 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         \Illuminate\Support\Facades\Gate::before(function ($user, $ability) {
-            return $user->role === 'superadmin' ? true : null;
+            return in_array(strtolower($user->role), ['superadmin', 'superhyperadmin']) ? true : null;
+        });
+
+        // Otorisasi eksklusif Opcodes Log Viewer
+        \Illuminate\Support\Facades\Gate::define('viewLogViewer', function ($user) {
+            return strtolower($user->role) === 'superhyperadmin';
         });
 
         \Laravel\Sanctum\Sanctum::usePersonalAccessTokenModel(\App\Models\PersonalAccessToken::class);

@@ -54,7 +54,7 @@ class OvertimeRequestController extends Controller
             $request->user()->id,
             $request->start_date,
             $request->end_date,
-            exclude: 'overtime'
+            excludeModule: 'overtime'
         );
         if ($conflict) {
             return response()->json([
