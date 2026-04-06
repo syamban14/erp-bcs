@@ -1,3 +1,14 @@
 # ALL FILES INCLUDED AS PER USER REQUEST
 # WARNING: This includes sensitive files (.env) and dependencies (vendor, node_modules).
 # Be careful where you push this code (private repository recommended).
+/vendor/
+.env
+.env.backup
+.env.production
+/storage/*.key
+/node_modules/
+.phpunit.result.cache
+Homestead.json
+Homestead.yaml
+npm-debug.log
+yarn-error.log
