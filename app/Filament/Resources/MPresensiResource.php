@@ -20,6 +20,8 @@ class MPresensiResource extends Resource
     protected static ?string $model = MPresensi::class;
 
     protected static ?string $navigationLabel = 'Mobile Accounts';
+    protected static ?string $modelLabel = 'Mobile Account';
+    protected static ?string $pluralModelLabel = 'Mobile Accounts';
 
     public static function getNavigationGroup(): ?string
     {

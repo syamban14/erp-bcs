@@ -29,6 +29,9 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            ->brandName('BCS Logistics')
+            ->brandLogo('/resources/MYBCS.png')
+            ->brandLogoHeight('5rem')
             ->colors([
                 'primary' => Color::Amber,
             ])
@@ -50,6 +53,14 @@ class AdminPanelProvider extends PanelProvider
                 // Custom dashboard widgets will be auto-discovered
             ])
             ->maxContentWidth('full')
+            ->renderHook(
+                \Filament\View\PanelsRenderHook::BODY_START,
+                fn(): string => '<style>
+                    .fi-sidebar-header { justify-content: center !important; }
+                    .fi-logo { display: flex; justify-content: center; width: 100%; }
+                    .fi-logo img { object-fit: contain; }
+                </style>',
+            )
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
