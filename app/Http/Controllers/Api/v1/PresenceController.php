@@ -156,31 +156,51 @@ class PresenceController extends Controller
             return response()->json(['message' => 'Anda sudah melakukan clock in hari ini'], 400);
         }
         
-        // ✅ GEOFENCING VALIDATION
-        // Akun reviewer dikecualikan dari pengecekan lokasi
+        // ✅ GEOFENCING VALIDATION (Multi-Lokasi)
         $bypassEmails = ['reviewer@tester.com'];
-        $user->load('officeLocation');
-        if ($user->officeLocation && !in_array(strtolower($user->email ?? ''), $bypassEmails)) {
-            $geofencing = app(\App\Services\GeofencingService::class);
-            
-            $validation = $geofencing->validate(
-                $request->latitude,
-                $request->longitude,
-                $user->officeLocation->latitude,
-                $user->officeLocation->longitude,
-                $user->officeLocation->radius
-            );
-            
-            if (!$validation['is_valid']) {
-                return response()->json([
-                    'success' => false,
-                    'message' => $validation['message'],
-                    'data' => [
-                        'distance' => $validation['distance'],
-                        'max_radius' => $validation['radius'],
-                        'office_name' => $user->officeLocation->name,
-                    ]
-                ], 422);
+        $user->load(['officeLocations', 'officeLocation']);
+        if (!in_array(strtolower($user->email ?? ''), $bypassEmails)) {
+            // Ambil semua lokasi — pivot dulu, fallback ke lokasi utama
+            $locations = $user->officeLocations->isNotEmpty()
+                ? $user->officeLocations
+                : ($user->officeLocation ? collect([$user->officeLocation]) : collect());
+
+            if ($locations->isNotEmpty()) {
+                $geofencing = app(\App\Services\GeofencingService::class);
+                $withinAny  = false;
+                $closestMsg = null;
+                $closestDist = PHP_INT_MAX;
+                $closestOffice = null;
+
+                foreach ($locations as $loc) {
+                    $validation = $geofencing->validate(
+                        $request->latitude,
+                        $request->longitude,
+                        $loc->latitude,
+                        $loc->longitude,
+                        $loc->radius
+                    );
+                    if ($validation['is_valid']) {
+                        $withinAny = true;
+                        break;
+                    }
+                    if ($validation['distance'] < $closestDist) {
+                        $closestDist   = $validation['distance'];
+                        $closestMsg    = $validation['message'];
+                        $closestOffice = $loc->name;
+                    }
+                }
+
+                if (!$withinAny) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => $closestMsg,
+                        'data'    => [
+                            'distance'    => $closestDist,
+                            'office_name' => $closestOffice,
+                        ]
+                    ], 422);
+                }
             }
         }
         
@@ -339,31 +359,50 @@ class PresenceController extends Controller
             'hours_elapsed' => $hoursElapsed,
         ]);
         
-        // ✅ GEOFENCING VALIDATION
-        // Akun reviewer dikecualikan dari pengecekan lokasi
+        // ✅ GEOFENCING VALIDATION (Multi-Lokasi)
         $bypassEmails = ['reviewer@tester.com'];
-        $user->load('officeLocation');
-        if ($user->officeLocation && !in_array(strtolower($user->email ?? ''), $bypassEmails)) {
-            $geofencing = app(\App\Services\GeofencingService::class);
-            
-            $validation = $geofencing->validate(
-                $request->latitude,
-                $request->longitude,
-                $user->officeLocation->latitude,
-                $user->officeLocation->longitude,
-                $user->officeLocation->radius
-            );
-            
-            if (!$validation['is_valid']) {
-                return response()->json([
-                    'success' => false,
-                    'message' => $validation['message'],
-                    'data' => [
-                        'distance' => $validation['distance'],
-                        'max_radius' => $validation['radius'],
-                        'office_name' => $user->officeLocation->name,
-                    ]
-                ], 422);
+        $user->load(['officeLocations', 'officeLocation']);
+        if (!in_array(strtolower($user->email ?? ''), $bypassEmails)) {
+            $locations = $user->officeLocations->isNotEmpty()
+                ? $user->officeLocations
+                : ($user->officeLocation ? collect([$user->officeLocation]) : collect());
+
+            if ($locations->isNotEmpty()) {
+                $geofencing = app(\App\Services\GeofencingService::class);
+                $withinAny  = false;
+                $closestMsg = null;
+                $closestDist = PHP_INT_MAX;
+                $closestOffice = null;
+
+                foreach ($locations as $loc) {
+                    $validation = $geofencing->validate(
+                        $request->latitude,
+                        $request->longitude,
+                        $loc->latitude,
+                        $loc->longitude,
+                        $loc->radius
+                    );
+                    if ($validation['is_valid']) {
+                        $withinAny = true;
+                        break;
+                    }
+                    if ($validation['distance'] < $closestDist) {
+                        $closestDist   = $validation['distance'];
+                        $closestMsg    = $validation['message'];
+                        $closestOffice = $loc->name;
+                    }
+                }
+
+                if (!$withinAny) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => $closestMsg,
+                        'data'    => [
+                            'distance'    => $closestDist,
+                            'office_name' => $closestOffice,
+                        ]
+                    ], 422);
+                }
             }
         }
 

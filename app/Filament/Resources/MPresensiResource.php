@@ -51,12 +51,14 @@ class MPresensiResource extends Resource
                     ->dehydrated(fn ($state) => filled($state))
                     ->required(fn (string $context): bool => $context === 'create'),
 
-                Forms\Components\Select::make('office_location_id')
-                    ->label('Lokasi Kantor (Geofencing)')
+                Forms\Components\Select::make('officeLocations')
+                    ->label('Lokasi Kerja (Geofencing)')
+                    ->multiple()
+                    ->relationship('officeLocations', 'name')
                     ->options(\App\Models\OfficeLocation::where('is_active', true)->pluck('name', 'id'))
                     ->searchable()
-                    ->required()
-                    ->helperText('Pilih lokasi kantor untuk validasi geofencing saat absensi'),
+                    ->preload()
+                    ->helperText('Pilih satu atau lebih lokasi kantor. Karyawan bisa clock-in dari lokasi mana saja yang dipilih di sini.'),
 
                 Forms\Components\Hidden::make('role')
                     ->default('user'),

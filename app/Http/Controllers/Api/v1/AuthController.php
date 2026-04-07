@@ -113,16 +113,38 @@ class AuthController extends Controller
         // ── 4. Issue Sanctum token ──
         $token = $user->createToken('mobile-app')->plainTextToken;
 
-        // ── 5. Load office location untuk geofencing ──
-        $user->load('officeLocation');
+        // ── 5. Load office locations (multi + fallback ke satu) ──
+        $user->load(['officeLocations', 'officeLocation']);
 
+        // Array semua lokasi (untuk Mobile v2 multi-geofencing)
+        $officeLocationsArray = $user->officeLocations->map(fn($loc) => [
+            'id'     => $loc->id,
+            'name'   => $loc->name,
+            'lat'    => $loc->latitude,
+            'lng'    => $loc->longitude,
+            'radius' => $loc->radius,
+        ])->values()->toArray();
+
+        // Fallback: jika pivot kosong, pakai lokasi utama
+        if (empty($officeLocationsArray) && $user->officeLocation) {
+            $officeLocationsArray = [[
+                'id'     => $user->officeLocation->id,
+                'name'   => $user->officeLocation->name,
+                'lat'    => $user->officeLocation->latitude,
+                'lng'    => $user->officeLocation->longitude,
+                'radius' => $user->officeLocation->radius,
+            ]];
+        }
+
+        // Legacy single-office fields (backward-compat dengan Mobile lama)
         $officeData = null;
-        if ($user->officeLocation) {
+        $primary = $user->officeLocations->first() ?? $user->officeLocation;
+        if ($primary) {
             $officeData = [
-                'office_lat'    => $user->officeLocation->latitude,
-                'office_lng'    => $user->officeLocation->longitude,
-                'office_radius' => $user->officeLocation->radius,
-                'office_name'   => $user->officeLocation->name,
+                'office_lat'    => $primary->latitude,
+                'office_lng'    => $primary->longitude,
+                'office_radius' => $primary->radius,
+                'office_name'   => $primary->name,
             ];
         }
 
@@ -134,9 +156,10 @@ class AuthController extends Controller
             ],
             'data' => array_merge(
                 [
-                    'token'         => $token,
-                    'device_bound'  => true,  // Konfirmasi ke mobile: device binding aktif
-                    'user'          => $user->load('karyawan')->toArray(),
+                    'token'            => $token,
+                    'device_bound'     => true,
+                    'user'             => $user->load('karyawan')->toArray(),
+                    'office_locations' => $officeLocationsArray,
                 ],
                 $officeData ? ['office' => $officeData] : []
             ),

@@ -128,6 +128,20 @@ class MPresensi extends Authenticatable implements FilamentUser
     }
 
     /**
+     * Semua lokasi kerja yang diperbolehkan (multi-lokasi via pivot)
+     * Digunakan untuk geofencing absensi.
+     */
+    public function officeLocations()
+    {
+        return $this->belongsToMany(
+            \App\Models\OfficeLocation::class,
+            'user_office_locations',
+            'user_id',
+            'office_location_id'
+        )->withTimestamps();
+    }
+
+    /**
      * Device-device yang terdaftar untuk user ini (di presensi_db)
      * Note: cross-connection, Eloquent tidak support FK constraint,
      * tapi relasi tetap bisa digunakan karena user_devices.user_id = m_presensi.id
