@@ -44,9 +44,42 @@ class MKaryawanResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('nama_karyawan')->label('Nama')->searchable(),
-                Tables\Columns\TextColumn::make('email')->searchable(),
-                Tables\Columns\TextColumn::make('posisi')->label('Posisi'),
+                Tables\Columns\TextColumn::make('payroll_id')
+                    ->label('Payroll ID')
+                    ->searchable()
+                    ->sortable()
+                    ->copyable()
+                    ->badge()
+                    ->color('gray')
+                    ->placeholder('-'),
+
+                Tables\Columns\TextColumn::make('nama_karyawan')
+                    ->label('Nama')
+                    ->searchable()
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('email')
+                    ->searchable()
+                    ->toggleable(),
+
+                Tables\Columns\TextColumn::make('title')
+                    ->label('Jabatan / Title')
+                    ->searchable()
+                    ->placeholder('-')
+                    ->toggleable(),
+
+                Tables\Columns\TextColumn::make('cost_sales_id')
+                    ->label('Cost Sales')
+                    ->searchable()
+                    ->placeholder('-')
+                    ->badge()
+                    ->color('info')
+                    ->toggleable(),
+
+                Tables\Columns\TextColumn::make('posisi')
+                    ->label('Posisi')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 Tables\Columns\IconColumn::make('has_account')
                     ->label('Mobile User')
                     ->boolean()
