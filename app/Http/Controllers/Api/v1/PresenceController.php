@@ -90,8 +90,14 @@ class PresenceController extends Controller
         $date = now()->format('Y-m-d');
         $time = now()->format('H:i:s');
 
-        // Check existing presence for today
-        $presence = Presence::where('user_id', $user->id)->where('date', $date)->first();
+        // Cari presence hari ini yang MASIH TERBUKA (belum clock-out)
+        // PENTING: Tidak menggunakan ->whereNull('clock_out') pada level ini karena
+        // shift malam (masuk 23:50 tn-1, keluar 07:00 tn-2) bisa punya clock_out di hari berbeda.
+        // Yang kita cek: apakah ada sesi shift yang sedang aktif (belum selesai) untuk hari ini.
+        $presence = Presence::where('user_id', $user->id)
+            ->where('date', $date)
+            ->whereNull('clock_out')  // Hanya yang masih TERBUKA
+            ->first();
 
         if ($request->type === 'in') {
             return $this->clockIn($request, $user, $date, $time, $presence);
@@ -152,11 +158,52 @@ class PresenceController extends Controller
     
     private function clockIn($request, $user, $date, $time, $presence)
     {
+        // Tolak jika shift hari ini masih TERBUKA (belum clock-out)
         if ($presence && $presence->clock_in) {
-            return response()->json(['message' => 'Anda sudah melakukan clock in hari ini'], 400);
+            return response()->json([
+                'success' => false,
+                'message' => 'Sesi shift hari ini masih berjalan. Silakan clock-out terlebih dahulu.',
+            ], 400);
+        }
+
+        // ── [SKENARIO 1] Blokir clock-in jika ada Cuti/Izin aktif hari ini ──
+        // Cek tabel leaves
+        $today = $date; // format Y-m-d
+        $hasLeave = \App\Models\Leave::where('user_id', $user->id)
+            ->whereIn('status', ['approved', 'pending'])
+            ->where('start_date', '<=', $today)
+            ->where('end_date', '>=', $today)
+            ->exists();
+
+        if ($hasLeave) {
+            return response()->json([
+                'meta' => [
+                    'code'    => 422,
+                    'status'  => 'error',
+                    'message' => 'Anda berstatus Cuti/Izin/Dinas untuk hari ini. Presensi masuk tidak dapat diproses.',
+                ],
+                'data' => null,
+            ], 422);
+        }
+
+        // Cek tabel permission_requests
+        $hasPermission = \App\Models\PermissionRequest::where('user_id', $user->id)
+            ->whereIn('status', ['approved', 'pending'])
+            ->where('start_date', '<=', $today)
+            ->where('end_date', '>=', $today)
+            ->exists();
+
+        if ($hasPermission) {
+            return response()->json([
+                'meta' => [
+                    'code'    => 422,
+                    'status'  => 'error',
+                    'message' => 'Anda berstatus Cuti/Izin/Dinas untuk hari ini. Presensi masuk tidak dapat diproses.',
+                ],
+                'data' => null,
+            ], 422);
         }
         
-        // ✅ GEOFENCING VALIDATION (Multi-Lokasi)
         $bypassEmails = ['reviewer@tester.com'];
         $user->load(['officeLocations', 'officeLocation']);
         if (!in_array(strtolower($user->email ?? ''), $bypassEmails)) {

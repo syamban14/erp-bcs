@@ -22,6 +22,11 @@ class MKaryawan extends Model
     // Allow mass assignment for now to make seeding easier given unknown full schema
     protected $guarded = [];
 
+    // Paksa payroll_id dibaca sebagai string agar leading zero ('0703') tidak hilang
+    protected $casts = [
+        'payroll_id' => 'string',
+    ];
+
     public function presensiAccount()
     {
         return $this->hasOne(MPresensi::class, 'karyawan_id');

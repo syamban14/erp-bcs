@@ -6,6 +6,7 @@ use App\Models\Leave;
 use App\Models\OvertimeRequest;
 use App\Models\OutstationRequest;
 use App\Models\PermissionRequest;
+use App\Models\Presence;
 use Carbon\Carbon;
 
 /**
@@ -13,27 +14,11 @@ use Carbon\Carbon;
  *
  * Memeriksa apakah rentang tanggal pengajuan baru bertabrakan (overlap)
  * dengan pengajuan yang sudah ada (status pending/approved) lintas-modul.
- *
- * Penggunaan:
- *   $conflict = OverlapValidator::check($userId, $startDate, $endDate, exclude: 'overtime');
- *   if ($conflict) {
- *       return response()->json(['meta' => [..., 'message' => $conflict]], 422);
- *   }
  */
 class OverlapValidator
 {
-    // Status yang dianggap aktif (yang perlu dicek)
     private const ACTIVE_STATUSES = ['pending', 'approved'];
 
-    /**
-     * Cek overlap lintas-modul untuk seorang user.
-     *
-     * @param  int         $userId
-     * @param  string      $startDate  Format: Y-m-d
-     * @param  string      $endDate    Format: Y-m-d
-     * @param  int|null    $excludeId  ID dari pengajuan yang sedang diedit (agar tidak cek ke diri sendiri)
-     * @return string|null Pesan konflik (jika ada), atau null (tidak ada konflik)
-     */
     public static function check(int $userId, string $startDate, string $endDate, ?string $excludeModule = null, ?int $excludeId = null): ?string
     {
         $start = Carbon::parse($startDate)->startOfDay();
@@ -45,19 +30,18 @@ class OverlapValidator
             $query->where('id', '!=', $excludeId);
         }
         $conflict = $query->where(function ($q) use ($start, $end) {
-                $q->whereBetween('start_date', [$start, $end])
-                  ->orWhereBetween('end_date', [$start, $end])
-                  ->orWhere(function ($q2) use ($start, $end) {
-                      $q2->where('start_date', '<=', $start)
-                         ->where('end_date', '>=', $end);
-                  });
-            })->first();
+            $q->whereBetween('start_date', [$start, $end])
+              ->orWhereBetween('end_date', [$start, $end])
+              ->orWhere(function ($q2) use ($start, $end) {
+                  $q2->where('start_date', '<=', $start)->where('end_date', '>=', $end);
+              });
+        })->first();
 
         if ($conflict) {
-            $label   = $conflict->type ?? 'Cuti';
-            $status  = $conflict->status === 'pending' ? 'Menunggu' : 'Disetujui';
-            $from    = Carbon::parse($conflict->start_date)->format('d M Y');
-            $to      = Carbon::parse($conflict->end_date)->format('d M Y');
+            $label  = $conflict->type ?? 'Cuti';
+            $status = $conflict->status === 'pending' ? 'Menunggu' : 'Disetujui';
+            $from   = Carbon::parse($conflict->start_date)->format('d M Y');
+            $to     = Carbon::parse($conflict->end_date)->format('d M Y');
             return "Gagal mengajukan: Tanggal tersebut bertabrakan dengan pengajuan {$label} Anda ({$from} – {$to}) yang berstatus {$status}.";
         }
 
@@ -67,13 +51,12 @@ class OverlapValidator
             $query->where('id', '!=', $excludeId);
         }
         $conflict = $query->where(function ($q) use ($start, $end) {
-                $q->whereBetween('start_date', [$start, $end])
-                  ->orWhereBetween('end_date', [$start, $end])
-                  ->orWhere(function ($q2) use ($start, $end) {
-                      $q2->where('start_date', '<=', $start)
-                         ->where('end_date', '>=', $end);
-                  });
-            })->first();
+            $q->whereBetween('start_date', [$start, $end])
+              ->orWhereBetween('end_date', [$start, $end])
+              ->orWhere(function ($q2) use ($start, $end) {
+                  $q2->where('start_date', '<=', $start)->where('end_date', '>=', $end);
+              });
+        })->first();
 
         if ($conflict) {
             $label  = $conflict->type ?? 'Izin';
@@ -88,13 +71,12 @@ class OverlapValidator
             $query->where('id', '!=', $excludeId);
         }
         $conflict = $query->where(function ($q) use ($start, $end) {
-                $q->whereBetween('start_date', [$start, $end])
-                  ->orWhereBetween('end_date', [$start, $end])
-                  ->orWhere(function ($q2) use ($start, $end) {
-                      $q2->where('start_date', '<=', $start)
-                         ->where('end_date', '>=', $end);
-                  });
-            })->first();
+            $q->whereBetween('start_date', [$start, $end])
+              ->orWhereBetween('end_date', [$start, $end])
+              ->orWhere(function ($q2) use ($start, $end) {
+                  $q2->where('start_date', '<=', $start)->where('end_date', '>=', $end);
+              });
+        })->first();
 
         if ($conflict) {
             $status = $conflict->status === 'pending' ? 'Menunggu' : 'Disetujui';
@@ -109,13 +91,12 @@ class OverlapValidator
             $query->where('id', '!=', $excludeId);
         }
         $conflict = $query->where(function ($q) use ($start, $end) {
-                $q->whereBetween('start_date', [$start, $end])
-                  ->orWhereBetween('end_date', [$start, $end])
-                  ->orWhere(function ($q2) use ($start, $end) {
-                      $q2->where('start_date', '<=', $start)
-                         ->where('end_date', '>=', $end);
-                  });
-            })->first();
+            $q->whereBetween('start_date', [$start, $end])
+              ->orWhereBetween('end_date', [$start, $end])
+              ->orWhere(function ($q2) use ($start, $end) {
+                  $q2->where('start_date', '<=', $start)->where('end_date', '>=', $end);
+              });
+        })->first();
 
         if ($conflict) {
             $label  = $conflict->task_type ?? 'Dinas Luar';
@@ -123,6 +104,22 @@ class OverlapValidator
             $from   = Carbon::parse($conflict->start_date)->format('d M Y');
             $to     = Carbon::parse($conflict->end_date)->format('d M Y');
             return "Gagal mengajukan: Tanggal tersebut bertabrakan dengan pengajuan {$label} Anda ({$from} – {$to}) yang berstatus {$status}.";
+        }
+
+        // ── 5. [SKENARIO 2] Cek Presensi — blokir jika sudah clock-in hari ini ──
+        // Hanya berlaku saat mengajukan Cuti atau Izin untuk hari ini.
+        if (in_array($excludeModule, ['leave', 'permission'])) {
+            $today = Carbon::today()->format('Y-m-d');
+            if ($startDate === $today) {
+                $hasPresence = Presence::where('user_id', $userId)
+                    ->where('date', $today)
+                    ->whereNotNull('clock_in')
+                    ->exists();
+
+                if ($hasPresence) {
+                    return 'Anda sudah melakukan presensi masuk (hadir) pada tanggal tersebut. Pengajuan tidak dapat diproses.';
+                }
+            }
         }
 
         return null; // Tidak ada konflik

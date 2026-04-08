@@ -47,11 +47,14 @@ class MKaryawanResource extends Resource
                 Tables\Columns\TextColumn::make('payroll_id')
                     ->label('Payroll ID')
                     ->searchable()
-                    ->sortable()
                     ->copyable()
-                    ->badge()
+                    ->formatStateUsing(fn ($state, MKaryawan $record): string =>
+                        !empty($record->getRawOriginal('payroll_id'))
+                            ? (string) $record->getRawOriginal('payroll_id')
+                            : '-'
+                    )
                     ->color('gray')
-                    ->placeholder('-'),
+                    ->weight('bold'),
 
                 Tables\Columns\TextColumn::make('nama_karyawan')
                     ->label('Nama')
