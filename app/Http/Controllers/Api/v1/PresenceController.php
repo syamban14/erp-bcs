@@ -166,8 +166,9 @@ class PresenceController extends Controller
             ], 400);
         }
 
-        // ── [SKENARIO 1] Blokir clock-in jika ada Cuti/Izin aktif hari ini ──
-        // Cek tabel leaves
+        // ── [SKENARIO 1] Blokir clock-in HANYA jika ada CUTI aktif hari ini ──
+        // Izin (Pulang Awal / Keluar Kantor) TIDAK memblokir clock-in
+        // karena karyawan tetap masuk kerja terlebih dahulu.
         $today = $date; // format Y-m-d
         $hasLeave = \App\Models\Leave::where('user_id', $user->id)
             ->whereIn('status', ['approved', 'pending'])
@@ -180,30 +181,12 @@ class PresenceController extends Controller
                 'meta' => [
                     'code'    => 422,
                     'status'  => 'error',
-                    'message' => 'Anda berstatus Cuti/Izin/Dinas untuk hari ini. Presensi masuk tidak dapat diproses.',
+                    'message' => 'Anda berstatus Cuti pada hari ini. Presensi masuk tidak dapat diproses.',
                 ],
                 'data' => null,
             ], 422);
         }
 
-        // Cek tabel permission_requests
-        $hasPermission = \App\Models\PermissionRequest::where('user_id', $user->id)
-            ->whereIn('status', ['approved', 'pending'])
-            ->where('start_date', '<=', $today)
-            ->where('end_date', '>=', $today)
-            ->exists();
-
-        if ($hasPermission) {
-            return response()->json([
-                'meta' => [
-                    'code'    => 422,
-                    'status'  => 'error',
-                    'message' => 'Anda berstatus Cuti/Izin/Dinas untuk hari ini. Presensi masuk tidak dapat diproses.',
-                ],
-                'data' => null,
-            ], 422);
-        }
-        
         $bypassEmails = ['reviewer@tester.com'];
         $user->load(['officeLocations', 'officeLocation']);
         if (!in_array(strtolower($user->email ?? ''), $bypassEmails)) {

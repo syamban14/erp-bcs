@@ -56,9 +56,25 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(
                 \Filament\View\PanelsRenderHook::BODY_START,
                 fn(): string => '<style>
+                    /* ── Sidebar logo (dashboard) ── */
                     .fi-sidebar-header { justify-content: center !important; }
-                    .fi-logo { display: flex; justify-content: center; width: 100%; }
-                    .fi-logo img { object-fit: contain; }
+                    .fi-sidebar .fi-logo { display: flex; justify-content: center; width: 100%; }
+                    .fi-sidebar .fi-logo img { object-fit: contain; }
+
+                    /* ── Login page logo — lebih kecil & proporsional ── */
+                    .fi-simple-layout .fi-logo,
+                    .fi-auth-card .fi-logo {
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        margin-bottom: 0.5rem;
+                    }
+                    .fi-simple-layout .fi-logo img,
+                    .fi-auth-card .fi-logo img {
+                        height: 3rem !important;
+                        max-width: 180px;
+                        object-fit: contain;
+                    }
                 </style>',
             )
             ->middleware([

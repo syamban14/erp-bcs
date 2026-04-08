@@ -38,7 +38,20 @@ class ShiftScheduleResource extends Resource
                     ->required(),
                 Forms\Components\Select::make('shift_code')
                     ->label('Kode Shift')
-                    ->options(ShiftCode::query()->pluck('name', 'code'))
+                    ->options(ShiftCode::query()->get()->filter(function ($shift) {
+                        $name = strtolower($shift->name);
+                        return str_contains($name, 'pagi') || 
+                               str_contains($name, 'malam') || 
+                               str_contains($name, 'off') || 
+                               str_contains($name, 'libur');
+                    })->mapWithKeys(function ($shift) {
+                        if ($shift->is_off) {
+                            return [$shift->code => $shift->name . ' (Libur / Off)'];
+                        }
+                        $timeIn = $shift->time_in ? \Carbon\Carbon::parse($shift->time_in)->format('H:i') : '--:--';
+                        $timeOut = $shift->time_out ? \Carbon\Carbon::parse($shift->time_out)->format('H:i') : '--:--';
+                        return [$shift->code => $shift->name . ' (' . $timeIn . ' - ' . $timeOut . ')'];
+                    }))
                     ->searchable()
                     ->required(),
             ]);
