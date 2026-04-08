@@ -38,7 +38,7 @@ class ApiErrorLogResource extends Resource
 
     public static function getNavigationLabel(): string
     {
-        return 'API Error Tracker';
+        return 'API Tracker';
     }
 
     public static function canViewAny(): bool
@@ -130,6 +130,8 @@ class ApiErrorLogResource extends Resource
                     ]),
                 SelectFilter::make('status_code')
                     ->options([
+                        '200' => '200 (OK)',
+                        '201' => '201 (Created)',
                         '400' => '400 (Bad Request)',
                         '401' => '401 (Unauthorized)',
                         '403' => '403 (Forbidden)',

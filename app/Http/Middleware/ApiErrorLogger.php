@@ -17,10 +17,9 @@ class ApiErrorLogger
     {
         $response = $next($request);
 
-        // Hanya log jika HTTP status codenya 4xx atau 5xx dan route-nya API
-        if ($response->isClientError() || $response->isServerError()) {
-            if ($request->is('api/*')) {
-                try {
+        // Log semua request yang masuk ke endpoint API (Baik sukses maupun error)
+        if ($request->is('api/*')) {
+            try {
                     // Coba ambil user_id jika ada
                     $userId = optional($request->user('sanctum'))->id ?? optional($request->user())->id;
                     
@@ -50,7 +49,6 @@ class ApiErrorLogger
                     // Fallback to normal log if database failure occurs
                     Log::error('ApiErrorLogger failed to save: ' . $e->getMessage());
                 }
-            }
         }
 
         return $response;

@@ -48,14 +48,15 @@ class MPresensiResource extends Resource
 
                 Forms\Components\TextInput::make('password')
                     ->password()
+                    ->revealable()
                     ->dehydrated(fn ($state) => filled($state))
-                    ->required(fn (string $context): bool => $context === 'create'),
+                    ->required(fn (string $context): bool => $context === 'create')
+                    ->helperText('Kosongkan jika tidak ingin mengubah password.'),
 
                 Forms\Components\Select::make('officeLocations')
                     ->label('Lokasi Kerja (Geofencing)')
                     ->multiple()
-                    ->relationship('officeLocations', 'name')
-                    ->options(\App\Models\OfficeLocation::where('is_active', true)->pluck('name', 'id'))
+                    ->relationship('officeLocations', 'name', fn ($query) => $query->where('is_active', true))
                     ->searchable()
                     ->preload()
                     ->helperText('Pilih satu atau lebih lokasi kantor. Karyawan bisa clock-in dari lokasi mana saja yang dipilih di sini.'),

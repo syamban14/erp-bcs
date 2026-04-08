@@ -107,8 +107,8 @@ class OverlapValidator
         }
 
         // ── 5. [SKENARIO 2] Cek Presensi — blokir jika sudah clock-in hari ini ──
-        // Hanya berlaku saat mengajukan Cuti atau Izin untuk hari ini.
-        if (in_array($excludeModule, ['leave', 'permission'])) {
+        // Hanya berlaku saat mengajukan Cuti untuk hari ini (Izin diperbolehkan karena terkait kehadiran parsial).
+        if (in_array($excludeModule, ['leave'])) {
             $today = Carbon::today()->format('Y-m-d');
             if ($startDate === $today) {
                 $hasPresence = Presence::where('user_id', $userId)

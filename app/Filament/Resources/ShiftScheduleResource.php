@@ -41,6 +41,7 @@ class ShiftScheduleResource extends Resource
                     ->options(ShiftCode::query()->get()->filter(function ($shift) {
                         $name = strtolower($shift->name);
                         return str_contains($name, 'pagi') || 
+                               str_contains($name, 'siang') || 
                                str_contains($name, 'malam') || 
                                str_contains($name, 'off') || 
                                str_contains($name, 'libur');

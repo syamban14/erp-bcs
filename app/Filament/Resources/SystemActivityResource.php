@@ -89,7 +89,7 @@ class SystemActivityResource extends Resource
                     Stack::make([
                         TextColumn::make('created_at')
                             ->dateTime('d M Y, H:i:s')
-                            ->description(fn (Activity $record): string => $record->created_at->diffForHumans())
+                            ->description(fn (?Activity $record): string => $record ? $record->created_at->diffForHumans() : '')
                             ->alignEnd(),
                     ])->grow(false),
                 ])->from('md'),
@@ -98,17 +98,17 @@ class SystemActivityResource extends Resource
                     Stack::make([
                         TextColumn::make('properties.old')
                             ->label('Data Lama (Old)')
-                            ->getStateUsing(fn (Activity $record) => isset($record->properties['old']) ? json_encode($record->properties['old'], JSON_PRETTY_PRINT) : null)
+                            ->getStateUsing(fn (?Activity $record) => $record && isset($record->properties['old']) ? json_encode($record->properties['old'], JSON_PRETTY_PRINT) : null)
                             ->html()
                             ->formatStateUsing(fn ($state) => "<strong style='color:#ef4444'>Data Lama:</strong><pre style='background: #111827; color: #fca5a5; padding: 10px; border-radius: 6px; font-size: 11px; max-height: 200px; overflow-y: auto;'>{$state}</pre>")
-                            ->visible(fn (Activity $record) => isset($record->properties['old'])),
+                            ->visible(fn (?Activity $record) => $record && isset($record->properties['old'])),
                             
                         TextColumn::make('properties.attributes')
                             ->label('Data Baru (New)')
-                            ->getStateUsing(fn (Activity $record) => isset($record->properties['attributes']) ? json_encode($record->properties['attributes'], JSON_PRETTY_PRINT) : null)
+                            ->getStateUsing(fn (?Activity $record) => $record && isset($record->properties['attributes']) ? json_encode($record->properties['attributes'], JSON_PRETTY_PRINT) : null)
                             ->html()
                             ->formatStateUsing(fn ($state) => "<strong style='color:#10b981'>Data Baru / Perubahan:</strong><pre style='background: #111827; color: #6ee7b7; padding: 10px; border-radius: 6px; font-size: 11px; max-height: 200px; overflow-y: auto;'>{$state}</pre>")
-                            ->visible(fn (Activity $record) => isset($record->properties['attributes'])),
+                            ->visible(fn (?Activity $record) => $record && isset($record->properties['attributes'])),
                     ]),
                 ])->collapsible(),
             ])
