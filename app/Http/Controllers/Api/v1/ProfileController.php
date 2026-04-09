@@ -36,11 +36,11 @@ class ProfileController extends Controller
         return response()->json([
             'message' => 'Success',
             'data' => [
-                'department' => $karyawan?->dept_name ?? 'Divisi Belum Diatur',
-                'employment_status' => $user->employment_type ?? 'Tetap',
-                'join_date' => $karyawan?->tanggal_masuk ?? 'Informasi Belum Tersedia',
+                'department' => $karyawan?->department?->dept_name ?? 'Divisi Belum Diatur',
+                'employment_status' => $karyawan?->status ?? 'Tetap',
+                'join_date' => $karyawan?->tgl_masuk ?? 'Informasi Belum Tersedia',
                 'work_location' => $user->officeLocation?->name ?? 'Lokasi Belum Diatur',
-                'position' => $karyawan?->posisi ?? 'Staff',
+                'position' => $karyawan?->titleInfo?->title ?? 'Staff',
                 'profile_image_url' => $profileImageUrl,
                 'name' => $user->name ?? '-',
                 'email' => $user->email ?? '-',

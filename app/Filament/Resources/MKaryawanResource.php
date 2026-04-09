@@ -111,7 +111,8 @@ class MKaryawanResource extends Resource
                             ->label('Atasan (Berdasarkan Jabatan Karyawan Ini)')
                             ->options(function () {
                                 $karyawanGrouped = \App\Models\MKaryawan::select('title', 'nama_karyawan')->get()->groupBy('title');
-                                return \App\Models\MTitle::query()->get()->mapWithKeys(function ($t) use ($karyawanGrouped) {
+                                // Use unique by title_code to prevent duplicate options
+                                return \App\Models\MTitle::query()->select('title_code', 'title')->get()->unique('title_code')->mapWithKeys(function ($t) use ($karyawanGrouped) {
                                     $emps = $karyawanGrouped->get($t->title_code, collect());
                                     $names = $emps->take(3)->pluck('nama_karyawan')->implode(', ');
                                     $count = $emps->count();
@@ -123,10 +124,13 @@ class MKaryawanResource extends Resource
                             ->multiple()
                             ->searchable()
                             ->preload()
+                            ->live() // trigger UI update on change
+                            ->disableOptionWhen(fn (string $value, $get): bool => in_array($value, (array) $get('bawahan_titles')))
                             ->dehydrated(false)
                             ->formatStateUsing(function ($record) {
                                 if (!$record || !$record->title) return [];
-                                return \App\Models\MAtasan::where('title_bawahan', $record->title)->pluck('title_atasan')->toArray();
+                                // Gunakan unique() agar jika database m_atasan ada duplikat kotor tidak bikin selected field jadi double
+                                return \App\Models\MAtasan::where('title_bawahan', $record->title)->pluck('title_atasan')->unique()->toArray();
                             })
                             ->saveRelationshipsUsing(function ($record, $state) {
                                 if (!$record->title) return;
@@ -134,7 +138,8 @@ class MKaryawanResource extends Resource
                                 if (!empty($state)) {
                                     $maxId = \App\Models\MAtasan::max('id') ?? 1000;
                                     $inserts = [];
-                                    foreach ((array) $state as $atasan) {
+                                    $uniqueState = array_unique((array) $state);
+                                    foreach ($uniqueState as $atasan) {
                                         $maxId++;
                                         $inserts[] = [
                                             'id' => $maxId,
@@ -150,7 +155,7 @@ class MKaryawanResource extends Resource
                             ->label('Bawahan (Berdasarkan Jabatan Karyawan Ini)')
                             ->options(function () {
                                 $karyawanGrouped = \App\Models\MKaryawan::select('title', 'nama_karyawan')->get()->groupBy('title');
-                                return \App\Models\MTitle::query()->get()->mapWithKeys(function ($t) use ($karyawanGrouped) {
+                                return \App\Models\MTitle::query()->select('title_code', 'title')->get()->unique('title_code')->mapWithKeys(function ($t) use ($karyawanGrouped) {
                                     $emps = $karyawanGrouped->get($t->title_code, collect());
                                     $names = $emps->take(3)->pluck('nama_karyawan')->implode(', ');
                                     $count = $emps->count();
@@ -162,10 +167,12 @@ class MKaryawanResource extends Resource
                             ->multiple()
                             ->searchable()
                             ->preload()
+                            ->live() // trigger UI update on change
+                            ->disableOptionWhen(fn (string $value, $get): bool => in_array($value, (array) $get('atasan_titles')))
                             ->dehydrated(false)
                             ->formatStateUsing(function ($record) {
                                 if (!$record || !$record->title) return [];
-                                return \App\Models\MAtasan::where('title_atasan', $record->title)->pluck('title_bawahan')->toArray();
+                                return \App\Models\MAtasan::where('title_atasan', $record->title)->pluck('title_bawahan')->unique()->toArray();
                             })
                             ->saveRelationshipsUsing(function ($record, $state) {
                                 if (!$record->title) return;
@@ -173,7 +180,8 @@ class MKaryawanResource extends Resource
                                 if (!empty($state)) {
                                     $maxId = \App\Models\MAtasan::max('id') ?? 1000;
                                     $inserts = [];
-                                    foreach ((array) $state as $bawahan) {
+                                    $uniqueState = array_unique((array) $state);
+                                    foreach ($uniqueState as $bawahan) {
                                         $maxId++;
                                         $inserts[] = [
                                             'id' => $maxId,
