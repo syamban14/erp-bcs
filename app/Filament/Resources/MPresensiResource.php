@@ -56,7 +56,38 @@ class MPresensiResource extends Resource
                 Forms\Components\Select::make('officeLocations')
                     ->label('Lokasi Kerja (Geofencing)')
                     ->multiple()
-                    ->relationship('officeLocations', 'name', fn ($query) => $query->where('is_active', true))
+                    ->options(\App\Models\OfficeLocation::where('is_active', true)->pluck('name', 'id'))
+                    ->formatStateUsing(function ($record) {
+                        if (!$record) return [];
+                        // Cross-DB: ambil manual dari pivot presensi_db
+                        return \Illuminate\Support\Facades\DB::connection('pgsql')
+                            ->table('user_office_locations')
+                            ->where('user_id', $record->id)
+                            ->pluck('office_location_id')
+                            ->toArray();
+                    })
+                    ->dehydrated(false) // Mencegah filament untuk menyimpan kolom ini secara otomatis
+                    ->afterStateUpdated(function ($state, Forms\Set $set) {
+                        // Needed for reactive fields if any, but fine here
+                    })
+                    ->saveRelationshipsUsing(function ($record, $state) {
+                        $db = \Illuminate\Support\Facades\DB::connection('pgsql');
+                        // Reset pivot
+                        $db->table('user_office_locations')->where('user_id', $record->id)->delete();
+                        
+                        if (!empty($state)) {
+                            $inserts = [];
+                            foreach ((array) $state as $locId) {
+                                $inserts[] = [
+                                    'user_id' => $record->id,
+                                    'office_location_id' => $locId,
+                                    'created_at' => now(),
+                                    'updated_at' => now(),
+                                ];
+                            }
+                            $db->table('user_office_locations')->insert($inserts);
+                        }
+                    })
                     ->searchable()
                     ->preload()
                     ->helperText('Pilih satu atau lebih lokasi kantor. Karyawan bisa clock-in dari lokasi mana saja yang dipilih di sini.'),

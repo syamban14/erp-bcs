@@ -35,8 +35,177 @@ class MKaryawanResource extends Resource
     {
         return $schema
             ->schema([
-                Forms\Components\TextInput::make('nama_karyawan')
-                    ->required(),
+                \Filament\Schemas\Components\Section::make('Informasi Dasar')
+                    ->schema([
+                        Forms\Components\TextInput::make('payroll_id')
+                            ->label('Payroll ID / NIK')
+                            ->maxLength(30)
+                            ->required(),
+                            
+                        Forms\Components\TextInput::make('nama_karyawan')
+                            ->label('Nama Karyawan')
+                            ->maxLength(300)
+                            ->required(),
+                            
+                        Forms\Components\Select::make('jenis_kelamin')
+                            ->label('Jenis Kelamin')
+                            ->options([
+                                'MALE' => 'MALE',
+                                'FEMALE' => 'FEMALE',
+                                'L' => 'Laki-laki (L)',
+                                'P' => 'Perempuan (P)',
+                            ])
+                            ->searchable(),
+                            
+                        Forms\Components\TextInput::make('tempat_lahir')
+                            ->label('Tempat Lahir')
+                            ->maxLength(100),
+                            
+                        Forms\Components\DatePicker::make('tgl_lahir')
+                            ->label('Tanggal Lahir'),
+                    ])->columns(2),
+
+                \Filament\Schemas\Components\Section::make('Jabatan & Penempatan')
+                    ->schema([
+                        Forms\Components\Select::make('title')
+                            ->label('Jabatan (Title)')
+                            ->options(\App\Models\MTitle::query()->pluck('title', 'title_code'))
+                            ->searchable()
+                            ->preload(),
+                            
+                        Forms\Components\Select::make('dept_id')
+                            ->label('Departemen')
+                            ->options(\App\Models\MDept::query()->pluck('dept_name', 'dept_code'))
+                            ->searchable()
+                            ->preload(),
+                            
+                        Forms\Components\Select::make('div_id')
+                            ->label('Divisi')
+                            ->options(\App\Models\MDivision::query()->pluck('div_name', 'div_code'))
+                            ->searchable()
+                            ->preload(),
+                            
+                        Forms\Components\TextInput::make('dir_id')
+                            ->label('Direktorat (Dir ID)'),
+                            
+                        Forms\Components\Select::make('level')
+                            ->label('Level')
+                            ->options(\App\Models\MLevel::query()->pluck('level', 'level_code'))
+                            ->searchable()
+                            ->preload(),
+                            
+                        Forms\Components\Select::make('grade')
+                            ->label('Grade')
+                            ->options(\App\Models\MGrade::query()->pluck('grade', 'grade_code'))
+                            ->searchable()
+                            ->preload(),
+                            
+                        Forms\Components\TextInput::make('point_of_hire')
+                            ->label('Point of Hire'),
+                    ])->columns(2),
+
+                \Filament\Schemas\Components\Section::make('Hirarki / Struktur Organisasi')
+                    ->description('PERHATIAN: Mengubah hirarki di sini akan berdampak pada SELURUH karyawan lain yang memiliki jabatan (Title) yang sama dengan karyawan ini!')
+                    ->schema([
+                        Forms\Components\Select::make('atasan_titles')
+                            ->label('Atasan (Berdasarkan Jabatan Karyawan Ini)')
+                            ->options(function () {
+                                $karyawanGrouped = \App\Models\MKaryawan::select('title', 'nama_karyawan')->get()->groupBy('title');
+                                return \App\Models\MTitle::query()->get()->mapWithKeys(function ($t) use ($karyawanGrouped) {
+                                    $emps = $karyawanGrouped->get($t->title_code, collect());
+                                    $names = $emps->take(3)->pluck('nama_karyawan')->implode(', ');
+                                    $count = $emps->count();
+                                    if ($count > 3) $names .= " dll ({$count} org)";
+                                    $label = $names ? "{$t->title} — [{$names}]" : $t->title;
+                                    return [$t->title_code => $label];
+                                })->toArray();
+                            })
+                            ->multiple()
+                            ->searchable()
+                            ->preload()
+                            ->dehydrated(false)
+                            ->formatStateUsing(function ($record) {
+                                if (!$record || !$record->title) return [];
+                                return \App\Models\MAtasan::where('title_bawahan', $record->title)->pluck('title_atasan')->toArray();
+                            })
+                            ->saveRelationshipsUsing(function ($record, $state) {
+                                if (!$record->title) return;
+                                \App\Models\MAtasan::where('title_bawahan', $record->title)->delete();
+                                if (!empty($state)) {
+                                    $maxId = \App\Models\MAtasan::max('id') ?? 1000;
+                                    $inserts = [];
+                                    foreach ((array) $state as $atasan) {
+                                        $maxId++;
+                                        $inserts[] = [
+                                            'id' => $maxId,
+                                            'title_bawahan' => $record->title,
+                                            'title_atasan' => $atasan,
+                                        ];
+                                    }
+                                    \App\Models\MAtasan::insert($inserts);
+                                }
+                            }),
+                            
+                        Forms\Components\Select::make('bawahan_titles')
+                            ->label('Bawahan (Berdasarkan Jabatan Karyawan Ini)')
+                            ->options(function () {
+                                $karyawanGrouped = \App\Models\MKaryawan::select('title', 'nama_karyawan')->get()->groupBy('title');
+                                return \App\Models\MTitle::query()->get()->mapWithKeys(function ($t) use ($karyawanGrouped) {
+                                    $emps = $karyawanGrouped->get($t->title_code, collect());
+                                    $names = $emps->take(3)->pluck('nama_karyawan')->implode(', ');
+                                    $count = $emps->count();
+                                    if ($count > 3) $names .= " dll ({$count} org)";
+                                    $label = $names ? "{$t->title} — [{$names}]" : $t->title;
+                                    return [$t->title_code => $label];
+                                })->toArray();
+                            })
+                            ->multiple()
+                            ->searchable()
+                            ->preload()
+                            ->dehydrated(false)
+                            ->formatStateUsing(function ($record) {
+                                if (!$record || !$record->title) return [];
+                                return \App\Models\MAtasan::where('title_atasan', $record->title)->pluck('title_bawahan')->toArray();
+                            })
+                            ->saveRelationshipsUsing(function ($record, $state) {
+                                if (!$record->title) return;
+                                \App\Models\MAtasan::where('title_atasan', $record->title)->delete();
+                                if (!empty($state)) {
+                                    $maxId = \App\Models\MAtasan::max('id') ?? 1000;
+                                    $inserts = [];
+                                    foreach ((array) $state as $bawahan) {
+                                        $maxId++;
+                                        $inserts[] = [
+                                            'id' => $maxId,
+                                            'title_atasan' => $record->title,
+                                            'title_bawahan' => $bawahan,
+                                        ];
+                                    }
+                                    \App\Models\MAtasan::insert($inserts);
+                                }
+                            }),
+                    ])->columns(2),
+
+                \Filament\Schemas\Components\Section::make('Status Kepegawaian')
+                    ->schema([
+                        Forms\Components\Select::make('status')
+                            ->label('Status')
+                            ->options([
+                                'PERMANENT' => 'PERMANENT (TETAP)',
+                                'CONTRACT' => 'CONTRACT (KONTRAK)',
+                                'INTERNSHIP' => 'MAGANG',
+                                'RESIGN' => 'RESIGN',
+                                'TETAP' => 'TETAP',
+                                'KONTRAK' => 'KONTRAK',
+                            ])
+                            ->searchable(),
+                            
+                        Forms\Components\DatePicker::make('tgl_masuk')
+                            ->label('Tanggal Masuk'),
+                            
+                        Forms\Components\DatePicker::make('tgl_keluar')
+                            ->label('Tanggal Keluar'),
+                    ])->columns(2),
             ]);
     }
 
