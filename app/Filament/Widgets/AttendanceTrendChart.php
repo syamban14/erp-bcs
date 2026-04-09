@@ -30,13 +30,24 @@ class AttendanceTrendChart extends ChartWidget
         // Ideally we would group by date in SQL, but for simplicity and consistency with previous logic:
         $current = $startDate->copy();
         
+        $user = auth()->user();
+        $isGlobalAdmin = $user ? $user->isGlobalAdmin() : false;
+        $subordinateIds = $isGlobalAdmin ? [] : ($user ? $user->getSubordinateUserIds() : []);
+        $scopeIds = empty($subordinateIds) ? [-1] : $subordinateIds;
+
         while ($current <= $endDate) {
-            $count = Presence::whereBetween('clock_in', [
+            $query = Presence::query()
+                ->whereBetween('clock_in', [
                     $current->copy()->startOfDay(),
                     $current->copy()->endOfDay()
                 ])
-                ->distinct('user_id')
-                ->count('user_id');
+                ->distinct('user_id');
+                
+            if (!$isGlobalAdmin) {
+                $query->whereIn('user_id', $scopeIds);
+            }
+                
+            $count = $query->count('user_id');
             
             $data->push([
                 'date' => $current->format('d M'),

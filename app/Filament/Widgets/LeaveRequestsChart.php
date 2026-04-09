@@ -22,12 +22,22 @@ class LeaveRequestsChart extends ChartWidget
         $startDate = $dates['start'];
         $endDate = $dates['end'];
         
-        $leaves = Leave::query()
+        $user = auth()->user();
+        $isGlobalAdmin = $user ? $user->isGlobalAdmin() : false;
+        $subordinateIds = $isGlobalAdmin ? [] : ($user ? $user->getSubordinateUserIds() : []);
+        $scopeIds = empty($subordinateIds) ? [-1] : $subordinateIds;
+
+        $leavesQuery = Leave::query()
             ->whereBetween('start_date', [
                 $startDate->startOfDay(),
                 $endDate->endOfDay()
-            ])
-            ->selectRaw('type, COUNT(*) as count')
+            ]);
+            
+        if (!$isGlobalAdmin) {
+            $leavesQuery->whereIn('user_id', $scopeIds);
+        }
+            
+        $leaves = $leavesQuery->selectRaw('type, COUNT(*) as count')
             ->groupBy('type')
             ->get();
         

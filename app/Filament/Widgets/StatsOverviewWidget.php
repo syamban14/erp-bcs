@@ -29,9 +29,17 @@ class StatsOverviewWidget extends BaseWidget
         $startDate = $dates['start'];
         $endDate = $dates['end'];
         
+        $user = auth()->user();
+        $isGlobalAdmin = $user ? $user->isGlobalAdmin() : false;
+        $subordinateIds = $isGlobalAdmin ? [] : ($user ? $user->getSubordinateUserIds() : []);
+        $scopeIds = empty($subordinateIds) ? [-1] : $subordinateIds; // fallback invalid ID if no subordinate
+
+        $applyBaseScope = fn($q) => $isGlobalAdmin ? $q : $q->whereIn('id', $scopeIds);
+        $applyScope = fn($q) => $isGlobalAdmin ? $q : $q->whereIn('user_id', $scopeIds);
+        
         // Total Karyawan
-        $totalEmployees = MPresensi::count();
-        $activeEmployees = MPresensi::where('is_active', true)->count();
+        $totalEmployees = $applyBaseScope(MPresensi::query())->count();
+        $activeEmployees = $applyBaseScope(MPresensi::where('is_active', true))->count();
         
         // Generate trend charts data (last 7 days from end date)
         $chartStart = $endDate->copy()->subDays(6);
@@ -44,7 +52,8 @@ class StatsOverviewWidget extends BaseWidget
         $empChart = array_fill(0, 7, $totalEmployees); // Flat line for now unless we track history
         
         // 2. Presence Chart - use `date` column (type: date), NOT clock_in (type: time)
-        $presenceStats = Presence::selectRaw('date::text as pdate, COUNT(DISTINCT user_id) as count')
+        $presenceStats = $applyScope(Presence::query())
+            ->selectRaw('date::text as pdate, COUNT(DISTINCT user_id) as count')
             ->whereBetween('date', [$chartStart->format('Y-m-d'), $endDate->format('Y-m-d')])
             ->groupBy('pdate')
             ->pluck('count', 'pdate')
@@ -53,7 +62,8 @@ class StatsOverviewWidget extends BaseWidget
         $presenceChart = array_map(fn($date) => (int)($presenceStats[$date] ?? 0), $chartRange);
         
         // 3. Sick Leave Chart
-        $sickStats = Leave::selectRaw('start_date::text as sdate, COUNT(*) as count')
+        $sickStats = $applyScope(Leave::query())
+            ->selectRaw('start_date::text as sdate, COUNT(*) as count')
             ->where('type', 'sick')
             ->where('status', 'approved')
             ->whereBetween('start_date', [$chartStart->format('Y-m-d'), $endDate->format('Y-m-d')])
@@ -64,7 +74,8 @@ class StatsOverviewWidget extends BaseWidget
         $sickChart = array_map(fn($date) => (int)($sickStats[$date] ?? 0), $chartRange);
         
         // 4. Late Chart - use `date` column
-        $lateStats = Presence::selectRaw('date::text as pdate, COUNT(DISTINCT user_id) as count')
+        $lateStats = $applyScope(Presence::query())
+            ->selectRaw('date::text as pdate, COUNT(DISTINCT user_id) as count')
             ->where('late_minutes', '>', 0)
             ->whereBetween('date', [$chartStart->format('Y-m-d'), $endDate->format('Y-m-d')])
             ->groupBy('pdate')
@@ -74,7 +85,8 @@ class StatsOverviewWidget extends BaseWidget
         $lateChart = array_map(fn($date) => (int)($lateStats[$date] ?? 0), $chartRange);
         
         // Kehadiran Periode Ini - use `date` column (type: date)
-        $presentToday = Presence::whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
+        $presentToday = $applyScope(Presence::query())
+            ->whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
             ->distinct('user_id')
             ->count('user_id');
             
@@ -83,52 +95,50 @@ class StatsOverviewWidget extends BaseWidget
             : 0;
         
         // Pending Approvals
-        $pendingLeaves = Leave::where('status', 'pending')->count();
-        $pendingPermissions = PermissionRequest::where('status', 'pending')->count();
-        $pendingCorrections = AttendanceCorrection::where('status', 'pending')->count();
+        $pendingLeaves = collect($applyScope(Leave::where('status', 'pending'))->pluck('id'))->count();
+        $pendingPermissions = collect($applyScope(PermissionRequest::where('status', 'pending'))->pluck('id'))->count();
+        $pendingCorrections = collect($applyScope(AttendanceCorrection::where('status', 'pending'))->pluck('id'))->count();
         $totalPending = $pendingLeaves + $pendingPermissions + $pendingCorrections;
         
         // Cuti Sakit Hari Ini / Periode Ini
-        $sickLeaveToday = Leave::where('type', 'sick')
+        $sickLeaveToday = $applyScope(Leave::query())
+            ->where('type', 'sick')
             ->where('status', 'approved')
             ->whereDate('start_date', '<=', $endDate)
             ->whereDate('end_date', '>=', $startDate)
             ->count();
         
         // Tugas Luar Aktif (Outstation) - Real Data
-        // Assuming we have OutstationRequest model and table outstation_requests
         $activeOutstation = 0;
         try {
             if (\Illuminate\Support\Facades\Schema::hasTable('outstation_requests')) {
-                $activeOutstation = \App\Models\OutstationRequest::where('status', 'approved')
+                $activeOutstation = $applyScope(\App\Models\OutstationRequest::query())
+                    ->where('status', 'approved')
                     ->whereDate('start_date', '<=', $endDate)
                     ->whereDate('end_date', '>=', $startDate)
                     ->count();
             }
-        } catch (\Exception $e) {
-            // Table might not exist or model missing
-        }
+        } catch (\Exception $e) {}
         
         // Tugas Luar Chart
         $outstationChart = array_fill(0, 7, 0); // Placeholder until schema verified
         
         // Belum Hadir (Karyawan aktif yang belum clock-in periode ini)
-        // Only makes sense if filter is Today. If period > 1 day, user present once is counted as present.
         $notPresentYet = max(0, $activeEmployees - $presentToday);
         
         // Belum Hadir Chart (Inverse of presence chart relative to active employees)
         $notPresentChart = array_map(fn($p) => max(0, $activeEmployees - $p), $presenceChart);
         
         // Belum Pulang (Sudah clock-in tapi belum clock-out dalam periode)
-        $notClockedOut = Presence::whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
+        $notClockedOut = $applyScope(Presence::query())
+            ->whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
             ->whereNull('clock_out')
             ->distinct('user_id')
             ->count('user_id');
             
         // ✅ Total Shift Siang & Malam
-        // Catatan: Shift Pagi TIDAK dihitung sesuai aturan BCS.
-        // Filter berdasarkan nama shift_code yang mengandung 'Siang' atau 'Malam'.
-        $totalShiftSiangMalam = Presence::whereHas('shiftCode', function ($q) {
+        $totalShiftSiangMalam = $applyScope(Presence::query())
+            ->whereHas('shiftCode', function ($q) {
                 $q->where('name', 'ilike', '%Siang%')
                   ->orWhere('name', 'ilike', '%Malam%');
             })
@@ -136,7 +146,8 @@ class StatsOverviewWidget extends BaseWidget
             ->count();
 
         // ✅ Total Lembur (hanya dari SPL yang disetujui, bukan otomatis)
-        $totalApprovedOvertime = \App\Models\OvertimeRequest::where('status', 'approved')
+        $totalApprovedOvertime = $applyScope(\App\Models\OvertimeRequest::query())
+            ->where('status', 'approved')
             ->whereBetween('start_date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
             ->count();
 

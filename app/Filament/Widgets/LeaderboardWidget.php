@@ -31,22 +31,36 @@ class LeaderboardWidget extends Widget
         $startDate = $dates['start'];
         $endDate = $dates['end'];
         
+        $user = auth()->user();
+        $isGlobalAdmin = $user ? $user->isGlobalAdmin() : false;
+        $subordinateIds = $isGlobalAdmin ? [] : collect($user ? $user->getSubordinateUserIds() : []);
+
         // Step 1: Get all divisions
         $divisions = DB::connection('pgsql_master')
             ->table('m_division')
             ->select('div_code', 'div_name')
             ->get();
+            
+        $validDivisions = collect();
         
         // Step 2: For each division, count late arrivals
         foreach ($divisions as $division) {
             // Get employee IDs in this division
-            $employeeIds = DB::connection('pgsql_master')
+            $query = DB::connection('pgsql_master')
                 ->table('m_karyawan')
                 ->join('m_presensi', 'm_karyawan.id', '=', 'm_presensi.karyawan_id')
                 ->where('m_karyawan.div_id', $division->div_code)
-                ->where('m_presensi.is_active', true)
-                ->pluck('m_presensi.id')
-                ->toArray();
+                ->where('m_presensi.is_active', true);
+                
+            if (!$isGlobalAdmin) {
+                $query->whereIn('m_presensi.id', $subordinateIds->isEmpty() ? [-1] : $subordinateIds->toArray());
+            }
+                
+            $employeeIds = $query->pluck('m_presensi.id')->toArray();
+            
+            if (empty($employeeIds)) {
+                continue; // Jangan tampilkan divisi ini jika Atasan tsb tidak punya bawahan di sini
+            }
             
             // Count late arrivals for these employees
             $lateCount = DB::connection('pgsql')
@@ -60,10 +74,13 @@ class LeaderboardWidget extends Widget
                 ->count();
             
             $division->late_count = $lateCount;
+            $division->employee_count = count($employeeIds);
+            
+            $validDivisions->push($division);
         }
         
         // Sort by late_count ascending and take top 5
-        return $divisions->sortBy('late_count')->take(5)->values();
+        return $validDivisions->sortBy('late_count')->take(5)->values();
     }
     
     /**
@@ -77,22 +94,32 @@ class LeaderboardWidget extends Widget
         $endDate = $dates['end'];
         $workingDays = $this->getWorkingDaysCount($startDate, $endDate);
         
+        $user = auth()->user();
+        $isGlobalAdmin = $user ? $user->isGlobalAdmin() : false;
+        $subordinateIds = $isGlobalAdmin ? [] : collect($user ? $user->getSubordinateUserIds() : []);
+
         // Step 1: Get all divisions
         $divisions = DB::connection('pgsql_master')
             ->table('m_division')
             ->select('div_code', 'div_name')
             ->get();
         
+        $validDivisions = collect();
+        
         // Step 2: For each division, calculate alpha count
         foreach ($divisions as $division) {
             // Get employee IDs in this division
-            $employeeIds = DB::connection('pgsql_master')
+            $query = DB::connection('pgsql_master')
                 ->table('m_karyawan')
                 ->join('m_presensi', 'm_karyawan.id', '=', 'm_presensi.karyawan_id')
                 ->where('m_karyawan.div_id', $division->div_code)
-                ->where('m_presensi.is_active', true)
-                ->pluck('m_presensi.id')
-                ->toArray();
+                ->where('m_presensi.is_active', true);
+                
+            if (!$isGlobalAdmin) {
+                $query->whereIn('m_presensi.id', $subordinateIds->isEmpty() ? [-1] : $subordinateIds->toArray());
+            }
+                
+            $employeeIds = $query->pluck('m_presensi.id')->toArray();
             
             if (empty($employeeIds)) {
                 $division->alpha_count = 0;
@@ -113,10 +140,12 @@ class LeaderboardWidget extends Widget
             $expectedPresences = count($employeeIds) * $workingDays;
             $division->alpha_count = max(0, $expectedPresences - $presenceCount);
             $division->employee_count = count($employeeIds);
+            
+            $validDivisions->push($division);
         }
         
         // Filter divisions with alpha > 0, sort descending, take top 5
-        return $divisions->filter(fn($d) => $d->alpha_count > 0)
+        return $validDivisions->filter(fn($d) => $d->alpha_count > 0)
             ->sortByDesc('alpha_count')
             ->take(5)
             ->values();

@@ -34,7 +34,11 @@ class EmployeeLeaderboardWidget extends Widget
         // We query 'presences' table for aggregation
         // user_id is the key
         
-        $stats = DB::connection('pgsql')
+        $user = auth()->user();
+        $isGlobalAdmin = $user ? $user->isGlobalAdmin() : false;
+        $subordinateIds = $isGlobalAdmin ? [] : collect($user ? $user->getSubordinateUserIds() : []);
+
+        $query = DB::connection('pgsql')
             ->table('presences')
             ->select('user_id', DB::raw('count(*) as on_time_count'))
             ->whereBetween('created_at', [
@@ -45,8 +49,13 @@ class EmployeeLeaderboardWidget extends Widget
             ->whereNotNull('clock_in')
             ->groupBy('user_id')
             ->orderByDesc('on_time_count')
-            ->limit(5)
-            ->get();
+            ->limit(5);
+
+        if (!$isGlobalAdmin) {
+            $query->whereIn('user_id', $subordinateIds->isEmpty() ? [-1] : $subordinateIds->toArray());
+        }
+
+        $stats = $query->get();
             
         // Now fetch employee details from master db
         $userIds = $stats->pluck('user_id')->toArray();
@@ -96,7 +105,11 @@ class EmployeeLeaderboardWidget extends Widget
         $startDate = $dates['start'];
         $endDate = $dates['end'];
         
-        $stats = DB::connection('pgsql')
+        $user = auth()->user();
+        $isGlobalAdmin = $user ? $user->isGlobalAdmin() : false;
+        $subordinateIds = $isGlobalAdmin ? [] : collect($user ? $user->getSubordinateUserIds() : []);
+
+        $query = DB::connection('pgsql')
             ->table('presences')
             ->select('user_id', DB::raw('sum(late_minutes) as total_late_minutes'))
             ->whereBetween('created_at', [
@@ -106,8 +119,13 @@ class EmployeeLeaderboardWidget extends Widget
             ->where('late_minutes', '>', 0)
             ->groupBy('user_id')
             ->orderByDesc('total_late_minutes')
-            ->limit(5)
-            ->get();
+            ->limit(5);
+
+        if (!$isGlobalAdmin) {
+            $query->whereIn('user_id', $subordinateIds->isEmpty() ? [-1] : $subordinateIds->toArray());
+        }
+
+        $stats = $query->get();
             
         // Now fetch employee details from master db
         $userIds = $stats->pluck('user_id')->toArray();

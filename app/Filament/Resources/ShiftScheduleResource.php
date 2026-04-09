@@ -11,9 +11,12 @@ use Filament\Schemas\Schema;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use App\Filament\Concerns\FiltersBySubordinates;
 
 class ShiftScheduleResource extends Resource
 {
+    use FiltersBySubordinates;
+
     protected static ?string $model = ShiftSchedule::class;
 
     protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-calendar-days';

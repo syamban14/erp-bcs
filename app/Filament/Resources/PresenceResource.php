@@ -9,9 +9,12 @@ use Filament\Schemas\Schema;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use App\Filament\Concerns\FiltersBySubordinates;
 
 class PresenceResource extends Resource
 {
+    use FiltersBySubordinates;
+
     protected static ?string $model = Presence::class;
 
     protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-clock';

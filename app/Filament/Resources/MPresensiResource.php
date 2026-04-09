@@ -67,7 +67,7 @@ class MPresensiResource extends Resource
                             ->toArray();
                     })
                     ->dehydrated(false) // Mencegah filament untuk menyimpan kolom ini secara otomatis
-                    ->afterStateUpdated(function ($state, Forms\Set $set) {
+                    ->afterStateUpdated(function ($state, $set) {
                         // Needed for reactive fields if any, but fine here
                     })
                     ->saveRelationshipsUsing(function ($record, $state) {

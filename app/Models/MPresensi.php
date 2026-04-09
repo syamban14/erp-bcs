@@ -116,6 +116,64 @@ class MPresensi extends Authenticatable implements FilamentUser
         return 'user';
     }
 
+    /**
+     * Check if user is HR or Superadmin (can see all data)
+     */
+    public function isGlobalAdmin(): bool
+    {
+        return in_array($this->role, ['superadmin', 'superhyperadmin', 'hr']);
+    }
+
+    /**
+     * Get array of all Karyawan IDs that are subordinates of this user (recursive)
+     */
+    public function getSubordinateKaryawanIds(): array
+    {
+        $myTitle = $this->karyawan?->title;
+        if (!$myTitle) return [];
+
+        $titlesToFind = [$myTitle];
+        $foundTitles = [];
+
+        // Recursive search for subordinate titles
+        while (!empty($titlesToFind)) {
+            $nextTitles = \App\Models\MAtasan::whereIn('title_atasan', $titlesToFind)
+                ->pluck('title_bawahan')
+                ->toArray();
+            
+            // Remove those we already found to avoid infinite loops if cycles exist
+            $newTitles = array_diff($nextTitles, $foundTitles, [$myTitle]);
+            
+            if (empty($newTitles)) {
+                break;
+            }
+
+            $foundTitles = array_merge($foundTitles, $newTitles);
+            $titlesToFind = $newTitles;
+        }
+
+        if (empty($foundTitles)) {
+            return [];
+        }
+
+        // Return IDs of MKaryawan who hold any of the subordinate titles
+        return \App\Models\MKaryawan::whereIn('title', array_unique($foundTitles))->pluck('id')->toArray();
+    }
+
+    /**
+     * Get array of all MPresensi IDs (user IDs) that are subordinates of this user
+     */
+    public function getSubordinateUserIds(): array
+    {
+        $karyawanIds = $this->getSubordinateKaryawanIds();
+        
+        if (empty($karyawanIds)) {
+            return [];
+        }
+
+        return self::whereIn('karyawan_id', $karyawanIds)->pluck('id')->toArray();
+    }
+
     public function canAccessPanel(Panel $panel): bool
     {
         // Hanya yang bukan 'user' biasa yang boleh masuk ke Admin Panel
