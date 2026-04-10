@@ -55,9 +55,8 @@ class PresenceResource extends Resource
                     ->badge()
                     ->color('info')
                     ->searchable(query: function ($query, string $search) {
-                        $userIds = \App\Models\MPresensi::whereHas('officeLocation', function ($q) use ($search) {
-                            $q->where('name', 'ilike', "%{$search}%");
-                        })->pluck('id');
+                        $officeIds = \App\Models\OfficeLocation::where('name', 'ilike', "%{$search}%")->pluck('id');
+                        $userIds = \App\Models\MPresensi::whereIn('office_location_id', $officeIds)->pluck('id');
                         return $query->whereIn('user_id', $userIds);
                     }),
                 Tables\Columns\TextColumn::make('date')
