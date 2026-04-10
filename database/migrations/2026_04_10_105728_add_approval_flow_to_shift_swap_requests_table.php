@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('shift_swap_requests', function (Blueprint $table) {
-            //
+            $table->unsignedTinyInteger('current_approval_level')->default(1)->after('status');
         });
     }
 
@@ -22,7 +22,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('shift_swap_requests', function (Blueprint $table) {
-            //
+            $table->dropColumn('current_approval_level');
         });
     }
 };
