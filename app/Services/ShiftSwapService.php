@@ -11,29 +11,34 @@ class ShiftSwapService
     /**
      * Request shift swap
      */
-    public function requestSwap($requesterId, $targetId, $requesterDate, $targetDate, $reason = null)
+    public function requestSwap($requesterId, $targetId, $requesterDate, $targetDate, $reason = null, $originalShiftId = null, $targetShiftId = null)
     {
-        // Validate requester shift
-        $requesterSchedule = ShiftSchedule::where('user_id', $requesterId)
-            ->where('date', $requesterDate)
-            ->first();
-            
-        if (!$requesterSchedule) {
-            throw new \Exception('Anda tidak memiliki jadwal shift pada tanggal tersebut');
+        $originalShift = \App\Models\ShiftCode::find($originalShiftId);
+        $targetShift = \App\Models\ShiftCode::find($targetShiftId);
+
+        if (!$originalShift || !$targetShift) {
+            throw new \Exception('Kode shift tidak valid');
         }
-        
-        // Validate target shift
-        $targetSchedule = ShiftSchedule::where('user_id', $targetId)
-            ->where('date', $targetDate)
-            ->first();
-            
-        if (!$targetSchedule) {
-            throw new \Exception('Karyawan target tidak memiliki jadwal shift pada tanggal tersebut');
+
+        if ($requesterId == $targetId) {
+            throw new \Exception('Anda tidak dapat bertukar shift dengan diri sendiri');
         }
-        
+
         // Validate date (tidak boleh tanggal yang sudah lewat)
         if ($requesterDate < now()->format('Y-m-d') || $targetDate < now()->format('Y-m-d')) {
             throw new \Exception('Tidak bisa tukar shift untuk tanggal yang sudah lewat');
+        }
+
+        // Cek cuti/dinas API Requester melalui Central OverlapValidator 
+        $requesterConflict = \App\Services\OverlapValidator::check($requesterId, $requesterDate, $requesterDate);
+        if ($requesterConflict) {
+            throw new \Exception('Gagal: Anda (Pihak Pengaju) terdeteksi bentrok (Cuti/Dinas/Tugas) pada ' . $requesterDate . '. Catatan: ' . $requesterConflict);
+        }
+
+        // Cek cuti/dinas API Target melalui Central OverlapValidator
+        $targetConflict = \App\Services\OverlapValidator::check($targetId, $targetDate, $targetDate);
+        if ($targetConflict) {
+            throw new \Exception('Gagal: Rekan target pengganti Anda sedang Cuti/Dinas/Bentrok pada ' . $targetDate . '. Info: ' . $targetConflict);
         }
         
         // Check existing pending request for these shifts
@@ -50,19 +55,20 @@ class ShiftSwapService
             ->first();
             
         if ($existing) {
-            throw new \Exception('Sudah ada request swap yang pending untuk shift ini');
+            throw new \Exception('Sudah ada request tukar shift yang pending untuk jadwal ini');
         }
         
         // Create swap request
         return ShiftSwapRequest::create([
             'requester_id' => $requesterId,
             'requester_date' => $requesterDate,
-            'requester_shift_code' => $requesterSchedule->shift_code,
+            'requester_shift_code' => $originalShift->code,
             'target_id' => $targetId,
             'target_date' => $targetDate,
-            'target_shift_code' => $targetSchedule->shift_code,
+            'target_shift_code' => $targetShift->code,
             'reason' => $reason,
             'status' => 'pending',
+            'current_approval_level' => 1,
         ]);
     }
     

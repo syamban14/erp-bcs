@@ -54,7 +54,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/presence', [PresenceController::class, 'store']);
     
     // Shift Schedule
-    Route::get('/my-shift', [ShiftController::class, 'index']);
+    Route::get('/shifts', [\App\Http\Controllers\Api\v1\ShiftController::class, 'shiftCodes']);
+    Route::get('/my-shift', [\App\Http\Controllers\Api\v1\ShiftController::class, 'index']);
     Route::get('/my-shift/today', [ShiftController::class, 'today']);
     Route::get('/my-shift/week', [ShiftController::class, 'week']);
     Route::post('/shift-swaps', [\App\Http\Controllers\Api\v1\ShiftSwapController::class, 'store']);

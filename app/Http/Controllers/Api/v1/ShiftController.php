@@ -16,6 +16,29 @@ class ShiftController extends Controller
     }
     
     /**
+     * Get Master Data Shift Code
+     */
+    public function shiftCodes()
+    {
+        $shifts = \App\Models\ShiftCode::where('is_off', false)->get()->map(function($shift) {
+            return [
+                'id' => $shift->id,
+                'name' => $shift->name ?? $shift->code,
+                'time_info' => ($shift->time_in && $shift->time_out) ? substr($shift->time_in, 0, 5) . ' - ' . substr($shift->time_out, 0, 5) : null
+            ];
+        });
+        
+        return response()->json([
+            'meta' => [
+                'code' => 200,
+                'status' => 'success',
+                'message' => 'List shifts retrieved successfully'
+            ],
+            'data' => $shifts
+        ]);
+    }
+
+    /**
      * Get my shift schedule (today + week)
      */
     public function index(Request $request)

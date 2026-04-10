@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Concerns\HasApprovalFlow;
 
 class ShiftSwapRequest extends Model
 {
-    use HasFactory;
+    use HasFactory, HasApprovalFlow;
 
     protected $fillable = [
         'requester_id',
@@ -18,6 +19,7 @@ class ShiftSwapRequest extends Model
         'target_shift_code',
         'reason',
         'status',
+        'current_approval_level',
         'approved_by',
         'approved_at',
         'rejection_reason',
@@ -32,6 +34,11 @@ class ShiftSwapRequest extends Model
     public function requester()
     {
         return $this->belongsTo(MPresensi::class, 'requester_id');
+    }
+
+    public function user()
+    {
+        return $this->requester();
     }
 
     public function target()

@@ -98,6 +98,8 @@ class ShiftSwapController extends Controller
             'target_employee_id' => 'required|exists:m_presensi,id',
             'original_date' => 'required|date',
             'target_date' => 'required|date',
+            'original_shift_id' => 'required|exists:shift_codes,id',
+            'target_shift_id' => 'required|exists:shift_codes,id',
             'reason' => 'nullable|string',
         ]);
         
@@ -107,7 +109,9 @@ class ShiftSwapController extends Controller
                 $request->target_employee_id,
                 $request->original_date,
                 $request->target_date,
-                $request->reason
+                $request->reason,
+                $request->original_shift_id,
+                $request->target_shift_id
             );
             
             return response()->json([
