@@ -57,6 +57,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/my-shift', [ShiftController::class, 'index']);
     Route::get('/my-shift/today', [ShiftController::class, 'today']);
     Route::get('/my-shift/week', [ShiftController::class, 'week']);
+    Route::post('/shift-swaps', [\App\Http\Controllers\Api\v1\ShiftSwapController::class, 'store']);
     
     // Notifications
     Route::get('/notifications', [\App\Http\Controllers\Api\v1\NotificationController::class, 'index']);
@@ -90,6 +91,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/leave-quota/history', [\App\Http\Controllers\Api\v1\LeaveQuotaController::class, 'history']);
     
     // Employee Info
+    Route::get('/employees', [\App\Http\Controllers\Api\v1\EmployeeController::class, 'index']);
     Route::get('/employee/info', [\App\Http\Controllers\Api\v1\EmployeeController::class, 'getInfo']);
     
     // Profile Update

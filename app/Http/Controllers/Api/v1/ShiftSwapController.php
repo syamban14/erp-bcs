@@ -95,8 +95,8 @@ class ShiftSwapController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'target_user_id' => 'required|exists:users,id',
-            'my_date' => 'required|date',
+            'target_employee_id' => 'required|exists:m_presensi,id',
+            'original_date' => 'required|date',
             'target_date' => 'required|date',
             'reason' => 'nullable|string',
         ]);
@@ -104,23 +104,30 @@ class ShiftSwapController extends Controller
         try {
             $swap = $this->swapService->requestSwap(
                 $request->user()->id,
-                $request->target_user_id,
-                $request->my_date,
+                $request->target_employee_id,
+                $request->original_date,
                 $request->target_date,
                 $request->reason
             );
             
             return response()->json([
-                'success' => true,
-                'message' => 'Request tukar shift berhasil dikirim. Menunggu persetujuan SPV/Manager.',
-                'data' => $swap->load(['requester', 'target', 'requesterShift', 'targetShift'])
-            ]);
+                'meta' => [
+                    'code' => 201,
+                    'status' => 'success',
+                    'message' => 'Pengajuan pertukaran shift berhasil dikirim dan menunggu persetujuan.'
+                ],
+                'data' => null
+            ], 201);
             
         } catch (\Exception $e) {
             return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 400);
+                'meta' => [
+                    'code' => 422,
+                    'status' => 'error',
+                    'message' => $e->getMessage()
+                ],
+                'data' => null
+            ], 422);
         }
     }
     

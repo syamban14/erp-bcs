@@ -34,7 +34,15 @@ class ShiftScheduleResource extends Resource
             ->schema([
                 Forms\Components\Select::make('user_id')
                     ->label('Karyawan')
-                    ->options(MPresensi::query()->pluck('name', 'id')) // Note: MPresensi is on different connection, but pluck should work if model configured
+                    ->options(function () {
+                        $user = auth()->user();
+                        $query = MPresensi::query();
+                        if ($user && !$user->isGlobalAdmin()) {
+                            $subordinateIds = $user->getSubordinateUserIds();
+                            $query->whereIn('id', empty($subordinateIds) ? [-1] : $subordinateIds);
+                        }
+                        return $query->pluck('name', 'id');
+                    })
                     ->searchable()
                     ->required(),
                 Forms\Components\DatePicker::make('date')
@@ -93,7 +101,15 @@ class ShiftScheduleResource extends Resource
             ->filters([
                 Tables\Filters\SelectFilter::make('user_id')
                     ->label('Karyawan')
-                    ->options(MPresensi::query()->pluck('name', 'id'))
+                    ->options(function () {
+                        $user = auth()->user();
+                        $query = MPresensi::query();
+                        if ($user && !$user->isGlobalAdmin()) {
+                            $subordinateIds = $user->getSubordinateUserIds();
+                            $query->whereIn('id', empty($subordinateIds) ? [-1] : $subordinateIds);
+                        }
+                        return $query->pluck('name', 'id');
+                    })
                     ->searchable(),
                 Tables\Filters\Filter::make('date')
                     ->form([

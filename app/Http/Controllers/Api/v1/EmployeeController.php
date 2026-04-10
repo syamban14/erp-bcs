@@ -8,6 +8,46 @@ use Illuminate\Http\Request;
 class EmployeeController extends Controller
 {
     /**
+     * Get list for employee Live Search
+     */
+    public function index(Request $request)
+    {
+        $search = $request->query('search');
+        
+        $query = \App\Models\MPresensi::where('is_active', true)
+            ->where('id', '!=', $request->user()->id)
+            ->with(['karyawan.department']);
+            
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'ilike', '%' . $search . '%')
+                  ->orWhere('email', 'ilike', '%' . $search . '%')
+                  ->orWhereHas('karyawan', function($q2) use ($search) {
+                      $q2->where('nama_karyawan', 'ilike', '%' . $search . '%')
+                         ->orWhere('payroll_id', 'ilike', '%' . $search . '%');
+                  });
+            });
+        }
+        
+        $employees = $query->limit(20)->get()->map(function($emp) {
+            return [
+                'id' => $emp->id,
+                'name' => $emp->karyawan->nama_karyawan ?? $emp->name,
+                'department' => $emp->karyawan->department->dept_name ?? ($emp->karyawan->dept_id ?? '-'),
+            ];
+        });
+        
+        return response()->json([
+            'meta' => [
+                'code' => 200,
+                'status' => 'success',
+                'message' => 'List employees retrieved successfully'
+            ],
+            'data' => $employees
+        ]);
+    }
+
+    /**
      * Get employee information for profile
      */
     public function getInfo(Request $request)
@@ -127,11 +167,16 @@ class EmployeeController extends Controller
      */
     private function parseDate($dateString)
     {
-        if (!$dateString || $dateString === '0/0/0' || empty(trim($dateString))) {
+        if (!$dateString || str_contains($dateString, '0/0/0') || str_contains($dateString, '0000-00-00') || empty(trim($dateString))) {
             return null;
         }
         
-        // Try to parse d/m/Y format
+        // If it's already Y-m-d format, just return it
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', trim($dateString))) {
+            return trim($dateString);
+        }
+        
+        // Try to parse d/m/Y format (legacy compatibility)
         $parts = explode('/', $dateString);
         if (count($parts) === 3) {
             $day = str_pad($parts[0], 2, '0', STR_PAD_LEFT);
