@@ -146,36 +146,53 @@ class ApprovalController extends Controller
             $typeLabel  = self::TYPE_LABELS[$modelClass] ?? 'Pengajuan';
 
             // Cari nama spesifik type jika ada (cth: cuti tahunan, lembur proyek)
+            // Gunakan flow->created_at sebagai safe fallback jika approvable->created_at gagal/hilang
+            $submissionDate = optional($approvable->created_at ?? $flow->created_at)->translatedFormat('d M Y');
+
             if ($approvable instanceof Leave) {
                 $typeLabel = 'Cuti ' . ucfirst($approvable->type ?? '');
                 $dateRange = $this->formatDateRange($approvable->start_date, $approvable->end_date);
                 $duration  = $approvable->calculateLeaveDays() . ' Hari Kerja';
                 $additionalInfo = null;
-                $submissionDate = optional($approvable->created_at)->translatedFormat('d M Y');
             } elseif ($approvable instanceof OvertimeRequest) {
-                $lembur = $approvable->overtime_date ?? null;
                 $typeLabel  = 'Lembur' . ($approvable->type ? ' ' . ucfirst($approvable->type) : '');
                 $dateRange  = null;
                 $duration   = ($approvable->duration_hours ?? 0) . ' Jam';
-                $additionalInfo = optional($lembur)->format('d M Y');
-                $submissionDate = optional($approvable->created_at)->translatedFormat('d M Y');
+                $additionalInfo = 'Durasi: ' . $duration;
             } elseif ($approvable instanceof PermissionRequest) {
                 $typeLabel  = 'Izin ' . ucfirst($approvable->type ?? '');
                 $dateRange  = $this->formatDateRange($approvable->start_date, $approvable->end_date);
                 $duration   = null;
                 $additionalInfo = $dateRange;
-                $submissionDate = optional($approvable->created_at)->translatedFormat('d M Y');
             } elseif ($approvable instanceof OutstationRequest) {
                 $typeLabel  = 'Perjalanan Dinas';
                 $dateRange  = $this->formatDateRange($approvable->start_date, $approvable->end_date);
                 $duration   = null;
                 $additionalInfo = optional($approvable->destination)->destination ?? null;
-                $submissionDate = optional($approvable->created_at)->translatedFormat('d M Y');
+            } elseif ($approvable instanceof \App\Models\ShiftSwapRequest) {
+                $typeLabel  = 'Tukar Shift';
+                $dateRange  = null;
+                $duration   = null;
+                $targetName = optional($approvable->target)->name ?? 'Unknown';
+                $tglTarget  = optional($approvable->target_date)->translatedFormat('d M Y') ?? '-';
+                $additionalInfo = "Tukar shift dengan {$targetName} tgl {$tglTarget}";
+            } elseif ($approvable instanceof \App\Models\Loan) {
+                $typeLabel  = 'Kasbon / Pinjaman';
+                $dateRange  = null;
+                $duration   = ($approvable->tenor_months ?? 0) . ' Bulan';
+                $nominal    = number_format($approvable->amount ?? 0, 0, ',', '.');
+                $additionalInfo = "Nominal: Rp {$nominal}";
+            } elseif ($approvable instanceof AttendanceCorrection) {
+                $typeLabel  = 'Koreksi Presensi';
+                $dateRange  = optional($approvable->date)->translatedFormat('d M Y');
+                $duration   = null;
+                $typeKor    = strtoupper($approvable->type ?? '');
+                $waktuKor   = $approvable->time ?? '';
+                $additionalInfo = "Tipe Koreksi: {$typeKor} ({$waktuKor})";
             } else {
                 $dateRange  = null;
                 $duration   = null;
                 $additionalInfo = null;
-                $submissionDate = optional($approvable->created_at)->translatedFormat('d M Y');
             }
 
             // Attachment
@@ -377,37 +394,54 @@ class ApprovalController extends Controller
         $modelClass = get_class($approvable);
         $typeLabel  = self::TYPE_LABELS[$modelClass] ?? 'Pengajuan';
 
-        if ($approvable instanceof Leave) {
-            $typeLabel = 'Cuti ' . ucfirst($approvable->type ?? '');
-            $dateRange = $this->formatDateRange($approvable->start_date, $approvable->end_date);
-            $duration  = $approvable->calculateLeaveDays() . ' Hari Kerja';
-            $additionalInfo = null;
-            $submissionDate = optional($approvable->created_at)->translatedFormat('d M Y');
-        } elseif ($approvable instanceof OvertimeRequest) {
-            $lembur = $approvable->overtime_date ?? null;
-            $typeLabel  = 'Lembur' . ($approvable->type ? ' ' . ucfirst($approvable->type) : '');
-            $dateRange  = null;
-            $duration   = ($approvable->duration_hours ?? 0) . ' Jam';
-            $additionalInfo = optional($lembur)->format('d M Y');
-            $submissionDate = optional($approvable->created_at)->translatedFormat('d M Y');
-        } elseif ($approvable instanceof PermissionRequest) {
-            $typeLabel  = 'Izin ' . ucfirst($approvable->type ?? '');
-            $dateRange  = $this->formatDateRange($approvable->start_date, $approvable->end_date);
-            $duration   = null;
-            $additionalInfo = $dateRange;
-            $submissionDate = optional($approvable->created_at)->translatedFormat('d M Y');
-        } elseif ($approvable instanceof OutstationRequest) {
-            $typeLabel  = 'Perjalanan Dinas';
-            $dateRange  = $this->formatDateRange($approvable->start_date, $approvable->end_date);
-            $duration   = null;
-            $additionalInfo = optional($approvable->destination)->destination ?? null;
-            $submissionDate = optional($approvable->created_at)->translatedFormat('d M Y');
-        } else {
-            $dateRange  = null;
-            $duration   = null;
-            $additionalInfo = null;
-            $submissionDate = optional($approvable->created_at)->translatedFormat('d M Y');
-        }
+            // Gunakan flow->created_at sebagai safe fallback jika approvable->created_at gagal/hilang
+            $submissionDate = optional($approvable->created_at ?? $flow->created_at)->translatedFormat('d M Y');
+
+            if ($approvable instanceof Leave) {
+                $typeLabel = 'Cuti ' . ucfirst($approvable->type ?? '');
+                $dateRange = $this->formatDateRange($approvable->start_date, $approvable->end_date);
+                $duration  = $approvable->calculateLeaveDays() . ' Hari Kerja';
+                $additionalInfo = null;
+            } elseif ($approvable instanceof OvertimeRequest) {
+                $typeLabel  = 'Lembur' . ($approvable->type ? ' ' . ucfirst($approvable->type) : '');
+                $dateRange  = null;
+                $duration   = ($approvable->duration_hours ?? 0) . ' Jam';
+                $additionalInfo = 'Durasi: ' . $duration;
+            } elseif ($approvable instanceof PermissionRequest) {
+                $typeLabel  = 'Izin ' . ucfirst($approvable->type ?? '');
+                $dateRange  = $this->formatDateRange($approvable->start_date, $approvable->end_date);
+                $duration   = null;
+                $additionalInfo = $dateRange;
+            } elseif ($approvable instanceof OutstationRequest) {
+                $typeLabel  = 'Perjalanan Dinas';
+                $dateRange  = $this->formatDateRange($approvable->start_date, $approvable->end_date);
+                $duration   = null;
+                $additionalInfo = optional($approvable->destination)->destination ?? null;
+            } elseif ($approvable instanceof \App\Models\ShiftSwapRequest) {
+                $typeLabel  = 'Tukar Shift';
+                $dateRange  = null;
+                $duration   = null;
+                $targetName = optional($approvable->target)->name ?? 'Unknown';
+                $tglTarget  = optional($approvable->target_date)->translatedFormat('d M Y') ?? '-';
+                $additionalInfo = "Tukar shift dengan {$targetName} tgl {$tglTarget}";
+            } elseif ($approvable instanceof \App\Models\Loan) {
+                $typeLabel  = 'Kasbon / Pinjaman';
+                $dateRange  = null;
+                $duration   = ($approvable->tenor_months ?? 0) . ' Bulan';
+                $nominal    = number_format($approvable->amount ?? 0, 0, ',', '.');
+                $additionalInfo = "Nominal: Rp {$nominal}";
+            } elseif ($approvable instanceof AttendanceCorrection) {
+                $typeLabel  = 'Koreksi Presensi';
+                $dateRange  = optional($approvable->date)->translatedFormat('d M Y');
+                $duration   = null;
+                $typeKor    = strtoupper($approvable->type ?? '');
+                $waktuKor   = $approvable->time ?? '';
+                $additionalInfo = "Tipe Koreksi: {$typeKor} ({$waktuKor})";
+            } else {
+                $dateRange  = null;
+                $duration   = null;
+                $additionalInfo = null;
+            }
 
         $attachmentName = null;
         $attachmentUrl  = null;
