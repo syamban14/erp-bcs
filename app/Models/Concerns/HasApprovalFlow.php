@@ -128,6 +128,29 @@ trait HasApprovalFlow
             }
         }
 
+        // Eksekusi otomatis tukar jadwal (Shift Code) untuk ShiftSwapRequest yang disetujui penuh
+        if ($this instanceof \App\Models\ShiftSwapRequest) {
+            \Illuminate\Support\Facades\DB::transaction(function () {
+                $requesterSchedule = \App\Models\ShiftSchedule::where('user_id', $this->requester_id)
+                    ->where('date', $this->requester_date)
+                    ->lockForUpdate()
+                    ->first();
+
+                $targetSchedule = \App\Models\ShiftSchedule::where('user_id', $this->target_id)
+                    ->where('date', $this->target_date)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($requesterSchedule && $targetSchedule) {
+                    $requesterSchedule->shift_code = $this->target_shift_code;
+                    $targetSchedule->shift_code = $this->requester_shift_code;
+                    
+                    $requesterSchedule->save();
+                    $targetSchedule->save();
+                }
+            });
+        }
+
         // Notifikasi ke Pengaju
         try {
             if ($this->user && !empty($this->user->fcm_token)) {

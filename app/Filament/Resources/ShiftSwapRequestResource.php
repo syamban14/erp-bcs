@@ -28,7 +28,7 @@ class ShiftSwapRequestResource extends Resource
     
     public static function getNavigationGroup(): ?string
     {
-        return 'Shift Management';
+        return 'Approvals';
     }
 
     public static function table(Table $table): Table
@@ -42,28 +42,46 @@ class ShiftSwapRequestResource extends Resource
                     ->label('Date')
                     ->date('d M Y'),
                 Tables\Columns\TextColumn::make('requester_shift_code')
-                    ->label('Shift')
+                    ->label('Shift (Req)')
                     ->badge()
                     ->color('info'),
                 Tables\Columns\TextColumn::make('target.name')
-                    ->label('Target')
+                    ->label('Target Employee')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('target_date')
                     ->label('Date')
                     ->date('d M Y'),
                 Tables\Columns\TextColumn::make('target_shift_code')
-                    ->label('Shift')
+                    ->label('Shift (Tar)')
                     ->badge()
                     ->color('info'),
-                Tables\Columns\TextColumn::make('status')
+                Tables\Columns\TextColumn::make('approval_progress')
+                    ->label('Approval Stage')
+                    ->getStateUsing(function ($record) {
+                        return $record->approval_progress_label;
+                    })
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'pending' => 'warning',
+                    ->color(fn ($record) => match ($record->status) {
                         'approved' => 'success',
                         'rejected' => 'danger',
+                        default    => 'warning',
+                    }),
+                Tables\Columns\BadgeColumn::make('status')
+                    ->label('Status')
+                    ->colors([
+                        'warning' => 'pending',
+                        'success' => 'approved',
+                        'danger'  => 'rejected',
+                    ])
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'pending'  => 'Pending',
+                        'approved' => 'Approved',
+                        'rejected' => 'Rejected',
+                        default    => $state,
                     }),
                 Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime('d M Y H:i'),
+                    ->dateTime('d M Y H:i')
+                    ->sortable(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
@@ -78,52 +96,57 @@ class ShiftSwapRequestResource extends Resource
                     ->label('Approve')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
-                    ->visible(fn ($record) => $record->status === 'pending')
                     ->requiresConfirmation()
                     ->modalHeading('Approve Shift Swap')
-                    ->modalDescription('Shift akan otomatis ditukar. Lanjutkan?')
-                    ->action(function ($record) {
-                        try {
-                            app(ShiftSwapService::class)->approveSwap($record->id, auth()->id());
-                            Notification::make()
-                                ->success()
-                                ->title('Shift swap approved')
-                                ->send();
-                        } catch (\Exception $e) {
-                            Notification::make()
-                                ->danger()
-                                ->title('Error: ' . $e->getMessage())
-                                ->send();
-                        }
+                    ->modalDescription(fn ($record) => "Approve this shift swap request? Current stage: " . ($record->approval_progress_label ?? ''))
+                    ->form([
+                        Forms\Components\Textarea::make('notes')
+                            ->label('Notes (optional)')
+                            ->rows(2),
+                    ])
+                    ->visible(fn ($record) => $record->status === 'pending' && $record->canBeApprovedBy(auth()->user()))
+                    ->action(function ($record, array $data) {
+                        $wasLevel4 = ($record->current_approval_level ?? 1) >= count(\App\Models\ApprovalFlow::LEVEL_ROLES);
+                        $record->approve(auth()->user(), $data['notes'] ?? null);
+
+                        Notification::make()
+                            ->title($wasLevel4 ? '✅ Shift Swap Fully Approved & Executed!' : '✅ Approved — Forwarded to next level')
+                            ->success()
+                            ->send();
                     }),
                 \Filament\Actions\Action::make('reject')
                     ->label('Reject')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
-                    ->visible(fn ($record) => $record->status === 'pending')
                     ->form([
-                        Forms\Components\Textarea::make('rejection_reason')
-                            ->label('Alasan Reject')
-                            ->required(),
+                        Forms\Components\Textarea::make('reason')
+                            ->label('Rejection Reason')
+                            ->required()
+                            ->rows(3),
                     ])
+                    ->modalHeading('Reject Shift Swap')
+                    ->visible(fn ($record) => $record->status === 'pending' && $record->canBeRejectedBy(auth()->user()))
                     ->action(function ($record, array $data) {
-                        try {
-                            app(ShiftSwapService::class)->rejectSwap(
-                                $record->id,
-                                auth()->id(),
-                                $data['rejection_reason']
-                            );
-                            Notification::make()
-                                ->success()
-                                ->title('Shift swap rejected')
-                                ->send();
-                        } catch (\Exception $e) {
-                            Notification::make()
-                                ->danger()
-                                ->title('Error: ' . $e->getMessage())
-                                ->send();
-                        }
+                        $record->reject(auth()->user(), $data['reason']);
+
+                        Notification::make()
+                            ->title('❌ Shift Swap Rejected')
+                            ->danger()
+                            ->send();
                     }),
+                \Filament\Actions\Action::make('history')
+                    ->label('Approval Chain')
+                    ->icon('heroicon-o-clock')
+                    ->color('gray')
+                    ->modalHeading('Approval Chain History')
+                    ->modalContent(function ($record) {
+                        $flows   = $record->approvalFlows()->with('approver')->get();
+                        $current = $record->current_approval_level ?? 1;
+                        $max     = count(\App\Models\ApprovalFlow::LEVEL_ROLES);
+
+                        return view('filament.approval-chain-modal', compact('flows', 'current', 'max', 'record'));
+                    })
+                    ->modalSubmitAction(false),
             ])
             ->defaultSort('created_at', 'desc');
     }
