@@ -123,9 +123,13 @@ class LoanResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('user.name')
+                TextColumn::make('user_id')
                     ->label('Nama Karyawan')
-                    ->searchable()
+                    ->formatStateUsing(fn ($state) => \App\Models\MPresensi::find($state)?->name ?? '-')
+                    ->searchable(query: fn ($query, $search) => $query->whereIn(
+                        'user_id',
+                        \App\Models\MPresensi::where('name', 'ilike', "%{$search}%")->pluck('id')
+                    ))
                     ->sortable()
                     ->weight('bold'),
                 TextColumn::make('amount')

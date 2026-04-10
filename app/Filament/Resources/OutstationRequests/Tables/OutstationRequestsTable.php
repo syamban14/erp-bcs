@@ -15,9 +15,13 @@ class OutstationRequestsTable
     {
         return $table
             ->columns([
-                \Filament\Tables\Columns\TextColumn::make('user.name')
+                \Filament\Tables\Columns\TextColumn::make('user_id')
                     ->label('Employee')
-                    ->searchable()
+                    ->formatStateUsing(fn ($state) => \App\Models\MPresensi::find($state)?->name ?? '-')
+                    ->searchable(query: fn ($query, $search) => $query->whereIn(
+                        'user_id',
+                        \App\Models\MPresensi::where('name', 'ilike', "%{$search}%")->pluck('id')
+                    ))
                     ->sortable(),
 
                 \Filament\Tables\Columns\TextColumn::make('task_type')

@@ -46,12 +46,20 @@ class PresenceResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('user.name')
                     ->label('Nama Karyawan')
-                    ->searchable(),
+                    ->searchable(query: function ($query, string $search) {
+                        $userIds = \App\Models\MPresensi::where('name', 'ilike', "%{$search}%")->pluck('id');
+                        return $query->whereIn('user_id', $userIds);
+                    }),
                 Tables\Columns\TextColumn::make('user.officeLocation.name')
                     ->label('Lokasi Kantor')
                     ->badge()
                     ->color('info')
-                    ->searchable(),
+                    ->searchable(query: function ($query, string $search) {
+                        $userIds = \App\Models\MPresensi::whereHas('officeLocation', function ($q) use ($search) {
+                            $q->where('name', 'ilike', "%{$search}%");
+                        })->pluck('id');
+                        return $query->whereIn('user_id', $userIds);
+                    }),
                 Tables\Columns\TextColumn::make('date')
                     ->date()
                     ->sortable(),

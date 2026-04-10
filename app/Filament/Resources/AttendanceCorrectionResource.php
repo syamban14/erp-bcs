@@ -69,9 +69,13 @@ class AttendanceCorrectionResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('user.name')
+                Tables\Columns\TextColumn::make('user_id')
                     ->label('Employee')
-                    ->searchable()
+                    ->formatStateUsing(fn ($state) => \App\Models\MPresensi::find($state)?->name ?? '-')
+                    ->searchable(query: fn ($query, $search) => $query->whereIn(
+                        'user_id',
+                        \App\Models\MPresensi::where('name', 'ilike', "%{$search}%")->pluck('id')
+                    ))
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('date')
