@@ -95,11 +95,11 @@ class ShiftSwapController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'target_employee_id' => 'required|exists:m_presensi,id',
+            'target_employee_id' => 'required|exists:pgsql_master.m_presensi,id',
             'original_date' => 'required|date',
             'target_date' => 'required|date',
-            'original_shift_id' => 'required|exists:shift_codes,id',
-            'target_shift_id' => 'required|exists:shift_codes,id',
+            'original_shift_id' => 'required|exists:pgsql_master.shift_codes,id',
+            'target_shift_id' => 'required|exists:pgsql_master.shift_codes,id',
             'reason' => 'nullable|string',
         ]);
         
