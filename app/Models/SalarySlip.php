@@ -22,7 +22,7 @@ class SalarySlip extends Model
         'zakat', 'tax', 'bpjs', 'union_fee', 'absence_deduction', 'absence_days',
         'cooperative', 'bpr_installment', 'other_deduction',
         'gross_salary', 'total_deductions', 'net_salary', 'salary_in_words',
-        'pdf_path',
+        'pdf_path', 'notes',
     ];
 
     protected $casts = [

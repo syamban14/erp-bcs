@@ -11,7 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // 
+        Schema::table('salary_slips', function (Blueprint $table) {
+            $table->text('notes')->nullable()->after('pdf_path');
+        });
     }
 
     /**
@@ -19,6 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // 
+        Schema::table('salary_slips', function (Blueprint $table) {
+            $table->dropColumn('notes');
+        });
     }
 };

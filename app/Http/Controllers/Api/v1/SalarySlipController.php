@@ -149,6 +149,7 @@ class SalarySlipController extends Controller
                     'total_deductions' => $totalDeductions,
                     'net_salary' => $netSalary,
                     'salary_in_words' => $slip->salary_in_words,
+                    'notes' => $slip->notes,
                 ],
             ]
         ]);
@@ -183,45 +184,25 @@ class SalarySlipController extends Controller
             ], 403);
         }
 
-        // Kalkulasi potongan dinamis (kasbon, dll)
-        $dynamicDeductions = [];
-        foreach ($slip->deductions as $ded) {
-            $meta = null;
-            if ($ded->type === \App\Models\SalaryDeduction::TYPE_LOAN_INSTALLMENT) {
-                $installment = \App\Models\LoanInstallment::where('salary_slip_id', $slip->id)
-                    ->where('loan_id', $ded->reference_id)
-                    ->with('loan')
-                    ->first();
-                if ($installment && $installment->loan) {
-                    $meta = "({$installment->installment_number}/{$installment->loan->tenor_months})";
-                }
-            }
-            $dynamicDeductions[] = [
-                'label'  => $ded->description ?? $ded->type,
-                'amount' => $ded->amount,
-                'meta'   => $meta,
-            ];
-        }
-
-        $totalDeductions = $slip->total_deductions_with_dynamic;
-        $netSalary       = $slip->net_salary_after_deductions;
-        $periodLabel     = $slip->period->locale('id')->isoFormat('MMMM YYYY');
-        $filename        = 'Slip_Gaji_' . $slip->period->format('F_Y');
-
-        \Log::info('SalarySlipExport', ['user_id' => $user->id, 'slip_id' => $id]);
-
-        if (!class_exists(\Barryvdh\DomPDF\Facade\Pdf::class)) {
+        // Jika tidak ada file spesifik hasil upload dari HR, batalkan
+        if (!$slip->pdf_path) {
             return response()->json([
-                'meta' => ['code' => 500, 'status' => 'error', 'message' => 'Library PDF belum terinstall. Jalankan composer install di server.'],
+                'meta' => ['code' => 404, 'status' => 'error', 'message' => 'File slip gaji belum diunggah.'],
                 'data' => null,
-            ], 500);
+            ], 404);
         }
 
-        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.salary_slip_pdf',
-            compact('slip', 'periodLabel', 'dynamicDeductions', 'totalDeductions', 'netSalary')
-        );
-        $pdf->setPaper('A4', 'portrait');
+        $filePath = storage_path('app/public/' . $slip->pdf_path);
+        
+        if (!file_exists($filePath)) {
+            return response()->json([
+                'meta' => ['code' => 404, 'status' => 'error', 'message' => 'File tidak ditemukan di server.'],
+                'data' => null,
+            ], 404);
+        }
 
-        return $pdf->download("{$filename}.pdf");
+        $filename = 'Slip_Gaji_' . $slip->period->format('F_Y') . '.pdf';
+        
+        return response()->download($filePath, $filename);
     }
 }
