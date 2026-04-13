@@ -29,6 +29,7 @@ class AnnouncementForm
                             ->label('Gambar Lampiran (Opsional)')
                             ->image()
                             ->directory('announcements')
+                            ->visibility('public')
                             ->columnSpanFull(),
                     ])->columns(2),
 

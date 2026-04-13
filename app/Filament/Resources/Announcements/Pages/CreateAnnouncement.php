@@ -15,4 +15,9 @@ class CreateAnnouncement extends CreateRecord
         // Panggil Laravel Jobs untuk Broadcast Pengumuman via FCM (agar loading Filament tidak lambat)
         SendAnnouncementNotification::dispatch($this->record);
     }
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
 }

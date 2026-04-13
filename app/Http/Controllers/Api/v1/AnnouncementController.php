@@ -34,7 +34,7 @@ class AnnouncementController extends Controller
                 return [
                     'id' => $item->id,
                     'title' => $item->title,
-                    'content' => $item->content,
+                    'content' => strip_tags($item->content),
                     'type' => $item->type,
                     'date' => $item->date->format('Y-m-d H:i:s'),
                     'image_url' => $item->image_url ? asset('storage/' . $item->image_url) : null,

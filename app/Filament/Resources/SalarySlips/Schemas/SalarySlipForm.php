@@ -60,6 +60,7 @@ class SalarySlipForm
                             ->label('Format PDF (Slip Gaji)')
                             ->acceptedFileTypes(['application/pdf'])
                             ->directory('payslips')
+                            ->visibility('public')
                             ->preserveFilenames()
                             ->required()
                             ->columnSpanFull(),

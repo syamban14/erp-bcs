@@ -99,17 +99,12 @@ class SalarySlipController extends Controller
             ];
         }
 
-        // Calculate totals dynamically if needed, but rely on DB columns for now to match UI
-        // Or use the new accessor if we want real-time calculation
-        $grossSalary = $slip->gross_salary;
-        // Use the accessor that includes dynamic deductions
-        $totalDeductions = $slip->total_deductions_with_dynamic; 
-        $netSalary = $slip->net_salary_after_deductions;
-        
+        // Karena sistem kini menggunakan sistem upload PDF penuh, komponen nominal usang tidak lagi dilampirkan agar Mobile App tidak menampilkan angka 0.
         return response()->json([
             'status' => 'success',
             'data' => [
                 'id' => $slip->id,
+                'download_url' => $slip->pdf_url,
                 'employee_info' => [
                     'nik' => $slip->employee_nik,
                     'name' => $slip->employee_name,
@@ -120,36 +115,19 @@ class SalarySlipController extends Controller
                 ],
                 'period_info' => [
                     'period_string' => $slip->period->format('n - Y'),
-                    'work_days' => $slip->work_days,
+                    'work_days' => 0,
                 ],
                 'earnings' => [
-                    'fixed_allowances' => [
-                        ['label' => 'Upah Pokok', 'amount' => $slip->basic_salary],
-                        ['label' => 'Tunj. Kontribusi Profesi', 'amount' => $slip->professional_allowance],
-                        ['label' => 'Tunj. Prestasi', 'amount' => $slip->performance_allowance],
-                        ['label' => 'Tunj. Jabatan', 'amount' => $slip->position_allowance],
-                    ],
-                    'variable_allowances' => [
-                        ['label' => 'Makan', 'amount' => $slip->meal_allowance],
-                        ['label' => 'Transport', 'amount' => $slip->transport_allowance],
-                        ['label' => 'Tunj. Relokasi', 'amount' => $slip->relocation_allowance],
-                        ['label' => 'Tunj. Skill', 'amount' => $slip->skill_allowance],
-                        ['label' => 'Tunj. Lain-lain', 'amount' => $slip->other_allowance],
-                        ['label' => 'Incentive tgl 10', 'amount' => $slip->incentive_10th],
-                        ['label' => 'Tunj. Komunikasi', 'amount' => $slip->communication_allowance],
-                        ['label' => 'Insentif', 'amount' => $slip->incentive],
-                        ['label' => 'Shift', 'amount' => $slip->shift_allowance, 'meta' => "({$slip->shift_count})"],
-                        ['label' => 'Lembur', 'amount' => $slip->overtime_allowance, 'meta' => "({$slip->overtime_hours})"],
-                        ['label' => 'Khk', 'amount' => $slip->khk_allowance, 'meta' => "({$slip->khk_count})"],
-                    ],
+                    'fixed_allowances' => [],
+                    'variable_allowances' => [],
                 ],
-                'deductions' => $deductions, // Use merged deductions
+                'deductions' => [],
                 'summary' => [
-                    'gross_salary' => $grossSalary,
-                    'total_deductions' => $totalDeductions,
-                    'net_salary' => $netSalary,
-                    'salary_in_words' => $slip->salary_in_words,
-                    'notes' => $slip->notes,
+                    'gross_salary' => 0,
+                    'total_deductions' => 0,
+                    'net_salary' => 0,
+                    'salary_in_words' => '-',
+                    'notes' => $slip->notes ?: 'Terkirim bersama lampiran dokumen PDF.',
                 ],
             ]
         ]);
@@ -177,7 +155,7 @@ class SalarySlipController extends Controller
         }
 
         // Keamanan: karyawan hanya boleh download miliknya sendiri
-        if ($slip->user_id !== $user->id) {
+        if ($slip->user_id != $user->id) {
             return response()->json([
                 'meta' => ['code' => 403, 'status' => 'error', 'message' => 'Anda tidak memiliki akses ke dokumen ini.'],
                 'data' => null,
