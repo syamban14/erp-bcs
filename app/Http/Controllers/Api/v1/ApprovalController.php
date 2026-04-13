@@ -156,7 +156,7 @@ class ApprovalController extends Controller
                 $additionalInfo = null;
             } elseif ($approvable instanceof OvertimeRequest) {
                 $typeLabel  = 'Lembur' . ($approvable->type ? ' ' . ucfirst($approvable->type) : '');
-                $dateRange  = null;
+                $dateRange  = optional($approvable->overtime_date)->translatedFormat('d M Y');
                 $duration   = ($approvable->duration_hours ?? 0) . ' Jam';
                 $additionalInfo = 'Durasi: ' . $duration;
             } elseif ($approvable instanceof PermissionRequest) {
@@ -171,14 +171,14 @@ class ApprovalController extends Controller
                 $additionalInfo = optional($approvable->destination)->destination ?? null;
             } elseif ($approvable instanceof \App\Models\ShiftSwapRequest) {
                 $typeLabel  = 'Tukar Shift';
-                $dateRange  = null;
+                $dateRange  = optional($approvable->requester_date)->translatedFormat('d M Y');
                 $duration   = null;
                 $targetName = optional($approvable->target)->name ?? 'Unknown';
                 $tglTarget  = optional($approvable->target_date)->translatedFormat('d M Y') ?? '-';
                 $additionalInfo = "Tukar shift dengan {$targetName} tgl {$tglTarget}";
             } elseif ($approvable instanceof \App\Models\Loan) {
                 $typeLabel  = 'Kasbon / Pinjaman';
-                $dateRange  = null;
+                $dateRange  = '-';
                 $duration   = ($approvable->tenor_months ?? 0) . ' Bulan';
                 $nominal    = number_format($approvable->amount ?? 0, 0, ',', '.');
                 $additionalInfo = "Nominal: Rp {$nominal}";
@@ -404,7 +404,7 @@ class ApprovalController extends Controller
                 $additionalInfo = null;
             } elseif ($approvable instanceof OvertimeRequest) {
                 $typeLabel  = 'Lembur' . ($approvable->type ? ' ' . ucfirst($approvable->type) : '');
-                $dateRange  = null;
+                $dateRange  = optional($approvable->overtime_date)->translatedFormat('d M Y');
                 $duration   = ($approvable->duration_hours ?? 0) . ' Jam';
                 $additionalInfo = 'Durasi: ' . $duration;
             } elseif ($approvable instanceof PermissionRequest) {
@@ -419,14 +419,14 @@ class ApprovalController extends Controller
                 $additionalInfo = optional($approvable->destination)->destination ?? null;
             } elseif ($approvable instanceof \App\Models\ShiftSwapRequest) {
                 $typeLabel  = 'Tukar Shift';
-                $dateRange  = null;
+                $dateRange  = optional($approvable->requester_date)->translatedFormat('d M Y');
                 $duration   = null;
                 $targetName = optional($approvable->target)->name ?? 'Unknown';
                 $tglTarget  = optional($approvable->target_date)->translatedFormat('d M Y') ?? '-';
                 $additionalInfo = "Tukar shift dengan {$targetName} tgl {$tglTarget}";
             } elseif ($approvable instanceof \App\Models\Loan) {
                 $typeLabel  = 'Kasbon / Pinjaman';
-                $dateRange  = null;
+                $dateRange  = '-';
                 $duration   = ($approvable->tenor_months ?? 0) . ' Bulan';
                 $nominal    = number_format($approvable->amount ?? 0, 0, ',', '.');
                 $additionalInfo = "Nominal: Rp {$nominal}";

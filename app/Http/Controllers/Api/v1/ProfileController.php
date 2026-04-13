@@ -33,13 +33,24 @@ class ProfileController extends Controller
             ? url('storage/' . $user->photo) 
             : 'https://ui-avatars.com/api/?name=' . urlencode($user->name) . '&background=random';
 
+        // Ambil ID lokasi terbaru langsung dari tabel Pivot Lokal untuk meng-Cut bug lambatnya sinkronisasi master 
+        $locIds = \Illuminate\Support\Facades\DB::connection('pgsql')
+            ->table('user_office_locations')
+            ->where('user_id', $user->id)
+            ->pluck('office_location_id');
+
+        $locations = \App\Models\OfficeLocation::whereIn('id', $locIds)->pluck('name')->toArray();
+        $work_location = !empty($locations) 
+            ? implode(', ', $locations) 
+            : ($user->officeLocation?->name ?? 'Lokasi Belum Diatur');
+
         return response()->json([
             'message' => 'Success',
             'data' => [
                 'department' => $karyawan?->department?->dept_name ?? 'Divisi Belum Diatur',
                 'employment_status' => $karyawan?->status ?? 'Tetap',
                 'join_date' => $karyawan?->tgl_masuk ?? 'Informasi Belum Tersedia',
-                'work_location' => $user->officeLocation?->name ?? 'Lokasi Belum Diatur',
+                'work_location' => $work_location,
                 'position' => $karyawan?->titleInfo?->title ?? 'Staff',
                 'profile_image_url' => $profileImageUrl,
                 'name' => $user->name ?? '-',

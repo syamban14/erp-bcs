@@ -114,8 +114,16 @@ class EmployeeController extends Controller
         // Get position/title name from relationship (fallback to title code or default)
         $position = $karyawan->titleInfo?->title ?? $karyawan->title ?? 'Staff';
         
-        // Get work location from m_presensi office_location relationship
-        $workLocation = $mPresensi->officeLocation?->name ?? 'N/A';
+        // Get work location from m_presensi office_location relationship (Via Pivot Multi-Geofencing)
+        $locIds = \Illuminate\Support\Facades\DB::connection('pgsql')
+            ->table('user_office_locations')
+            ->where('user_id', $mPresensi->id)
+            ->pluck('office_location_id');
+            
+        $locations = \App\Models\OfficeLocation::whereIn('id', $locIds)->pluck('name')->toArray();
+        $workLocation = !empty($locations) 
+            ? implode(', ', $locations) 
+            : ($mPresensi->officeLocation?->name ?? 'N/A');
         
         // Map employment status
         $employmentStatus = $this->mapEmploymentStatus($karyawan->status);
