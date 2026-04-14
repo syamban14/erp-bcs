@@ -39,6 +39,8 @@ class AnnouncementController extends Controller
                     'date' => $item->date->format('Y-m-d H:i:s'),
                     'image_url' => $item->image_url ? url('/api/v1/public/files/' . $item->image_url) : null,
                     'target_user_id' => $item->target_user_id,
+                    'sender_name' => $item->author_name ?? 'HR & GA / Manajemen',
+                    'sender_division' => $item->author_division ?? 'Pusat Manajemen',
                     'greetings_count' => Greeting::where('announcement_id', $item->id)->count(),
                 ];
             })->toArray();

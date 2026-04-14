@@ -60,9 +60,21 @@ class FcmService
                             'title' => $title,
                             'body' => $body,
                         ],
+                        'android' => [
+                            'priority' => 'HIGH',
+                            'notification' => [
+                                'sound' => 'default',
+                            ],
+                        ],
+                        'apns' => [
+                            'payload' => [
+                                'aps' => [
+                                    'sound' => 'default',
+                                ]
+                            ]
+                        ],
                         'data' => array_merge([
                             'click_action' => 'FLUTTER_NOTIFICATION_CLICK',
-                            'sound' => 'default',
                         ], array_map('strval', $data)),
                     ]
                 ]);

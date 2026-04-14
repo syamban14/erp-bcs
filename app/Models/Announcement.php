@@ -19,6 +19,8 @@ class Announcement extends Model
         'date',
         'image_url',
         'target_user_id',
+        'author_name',
+        'author_division',
         'is_active',
     ];
 

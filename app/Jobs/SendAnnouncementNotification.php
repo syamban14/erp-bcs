@@ -33,10 +33,13 @@ class SendAnnouncementNotification implements ShouldQueue
             if ($this->announcement->target_user_id) {
                 $user = MPresensi::find($this->announcement->target_user_id);
                 if ($user && !empty($user->fcm_token)) {
+                    $authorStr = ($this->announcement->author_name) ? "\n\nDari: " . $this->announcement->author_name . " (" . $this->announcement->author_division . ")" : "\n\nDari: Manajemen";
+                    $cleanContent = strip_tags($this->announcement->content);
+
                     FcmService::sendNotification(
                         $user->fcm_token,
-                        'Pengumuman: ' . $this->announcement->title,
-                        $this->announcement->content,
+                        'Pengumuman Spesifik: ' . $this->announcement->title,
+                        $cleanContent . $authorStr,
                         ['type' => 'announcement']
                     );
                 }
@@ -50,10 +53,13 @@ class SendAnnouncementNotification implements ShouldQueue
                     $tokens = $users->pluck('fcm_token')->toArray();
                     
                     if (!empty($tokens)) {
+                        $authorStr = ($this->announcement->author_name) ? "\n\nDari: " . $this->announcement->author_name . " (" . $this->announcement->author_division . ")" : "\n\nDari: Manajemen";
+                        $cleanContent = strip_tags($this->announcement->content);
+
                         FcmService::sendNotification(
                             array_values(array_unique($tokens)),
                             'Pengumuman Baru: ' . $this->announcement->title,
-                            $this->announcement->content,
+                            $cleanContent . $authorStr,
                             ['type' => 'announcement']
                         );
                     }
