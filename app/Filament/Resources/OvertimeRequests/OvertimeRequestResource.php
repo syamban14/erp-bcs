@@ -210,7 +210,30 @@ class OvertimeRequestResource extends Resource
                 DeleteAction::make(),
             ])
             ->toolbarActions([
-                BulkActionGroup::make([DeleteBulkAction::make()]),
+                BulkActionGroup::make([
+                    \Filament\Actions\BulkAction::make('approveAll')
+                        ->label('Approve All Selected')
+                        ->icon('heroicon-o-check-badge')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->modalHeading('Approve All Selected Overtime Requests?')
+                        ->modalDescription('Hanya pengajuan yang statusnya Pending dan bisa Anda approve yang akan diproses.')
+                        ->modalSubmitActionLabel('Ya, Approve Semua')
+                        ->action(function (\Illuminate\Support\Collection $records) {
+                            $approved = 0; $skipped = 0;
+                            foreach ($records as $record) {
+                                if ($record->status !== 'pending' || !$record->canBeApprovedBy(auth()->user())) {
+                                    $skipped++; continue;
+                                }
+                                $record->approve(auth()->user(), 'Bulk approved by admin');
+                                $approved++;
+                            }
+                            Notification::make()
+                                ->title("✅ {$approved} lembur disetujui" . ($skipped ? ", {$skipped} dilewati." : '.'))
+                                ->success()->send();
+                        }),
+                    DeleteBulkAction::make(),
+                ]),
             ])
             ->defaultSort('created_at', 'desc');
     }

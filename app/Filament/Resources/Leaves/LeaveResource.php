@@ -248,6 +248,39 @@ class LeaveResource extends Resource
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
+                    \Filament\Actions\BulkAction::make('approveAll')
+                        ->label('Approve All Selected')
+                        ->icon('heroicon-o-check-badge')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->modalHeading('Approve All Selected Leave Requests?')
+                        ->modalDescription('Hanya pengajuan yang statusnya Pending dan bisa Anda approve yang akan diproses. Pengajuan lain akan dilewati.')
+                        ->modalSubmitActionLabel('Ya, Approve Semua')
+                        ->action(function (\Illuminate\Support\Collection $records) {
+                            $approved = 0;
+                            $skipped  = 0;
+                            foreach ($records as $record) {
+                                if ($record->status !== 'pending' || !$record->canBeApprovedBy(auth()->user())) {
+                                    $skipped++;
+                                    continue;
+                                }
+                                $wasLevel4 = ($record->current_approval_level ?? 1) >= count(\App\Models\ApprovalFlow::LEVEL_ROLES);
+                                $record->approve(auth()->user(), 'Bulk approved by admin');
+
+                                if ($wasLevel4 && strtolower($record->fresh()->type) === 'tahunan') {
+                                    $balance = \App\Models\LeaveBalance::firstOrCreate(
+                                        ['user_id' => $record->user_id, 'year' => $record->start_date->year],
+                                        ['quota' => 12, 'used' => 0]
+                                    );
+                                    $balance->increment('used', $record->calculateLeaveDays());
+                                }
+                                $approved++;
+                            }
+                            Notification::make()
+                                ->title("✅ {$approved} pengajuan cuti disetujui" . ($skipped ? ", {$skipped} dilewati." : '.'))
+                                ->success()
+                                ->send();
+                        }),
                     DeleteBulkAction::make(),
                 ]),
             ])

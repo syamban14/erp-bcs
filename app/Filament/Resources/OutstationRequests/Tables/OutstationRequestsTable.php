@@ -157,6 +157,27 @@ class OutstationRequestsTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
+                    \Filament\Actions\BulkAction::make('approveAll')
+                        ->label('Approve All Selected')
+                        ->icon('heroicon-o-check-badge')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->modalHeading('Approve All Selected Outstation Requests?')
+                        ->modalDescription('Hanya pengajuan yang statusnya Pending dan bisa Anda approve yang akan diproses.')
+                        ->modalSubmitActionLabel('Ya, Approve Semua')
+                        ->action(function (\Illuminate\Support\Collection $records) {
+                            $approved = 0; $skipped = 0;
+                            foreach ($records as $record) {
+                                if ($record->status !== 'pending' || !$record->canBeApprovedBy(auth()->user())) {
+                                    $skipped++; continue;
+                                }
+                                $record->approve(auth()->user(), 'Bulk approved by admin');
+                                $approved++;
+                            }
+                            Notification::make()
+                                ->title("✅ {$approved} perjalanan dinas disetujui" . ($skipped ? ", {$skipped} dilewati." : '.'))
+                                ->success()->send();
+                        }),
                     DeleteBulkAction::make(),
                 ]),
             ])
