@@ -37,7 +37,7 @@ class AnnouncementController extends Controller
                     'content' => strip_tags($item->content),
                     'type' => $item->type,
                     'date' => $item->date->format('Y-m-d H:i:s'),
-                    'image_url' => $item->image_url ? url('/api/v1/files/' . $item->image_url) : null,
+                    'image_url' => $item->image_url ? url('/api/v1/public/files/' . $item->image_url) : null,
                     'target_user_id' => $item->target_user_id,
                     'greetings_count' => Greeting::where('announcement_id', $item->id)->count(),
                 ];

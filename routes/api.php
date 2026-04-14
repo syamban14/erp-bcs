@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\v1\PresenceController;
 use App\Http\Controllers\Api\v1\ShiftController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
 
 /*
 |--------------------------------------------------------------------------
@@ -19,8 +20,16 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
 
 // Mobile Security (Public)
-Route::post('/biometric/login', [App\Http\Controllers\Api\v1\BiometricController::class, 'login']);
-Route::post('/pin/verify', [App\Http\Controllers\Api\v1\PinController::class, 'verify']);
+Route::post('/biometric/login', [\App\Http\Controllers\Api\v1\BiometricController::class, 'login']);
+Route::post('/pin/verify', [\App\Http\Controllers\Api\v1\PinController::class, 'verify']);
+
+// Public File Proxy (Bypass NGINX Storage Symlink 403)
+Route::get('/public/files/{path}', function($path) {
+    if (Storage::disk('public')->exists($path)) {
+        return response()->file(Storage::disk('public')->path($path));
+    }
+    abort(404);
+})->where('path', '.*');
 
 // Test route - TEMPORARY
 Route::get('/test-employee', function() {
