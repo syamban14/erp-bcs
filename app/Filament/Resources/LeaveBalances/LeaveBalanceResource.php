@@ -90,11 +90,11 @@ class LeaveBalanceResource extends Resource
                         return $user ? $user->name : '-';
                     })
                     ->searchable(query: function ($query, $search) {
-                        return $query->whereIn('user_id', function ($q) use ($search) {
-                            $q->select('id')
-                                ->from('master_db.m_presensi')
-                                ->where('name', 'ilike', "%{$search}%");
-                        });
+                        // Gunakan Eloquent MPresensi (koneksi pgsql_master) untuk dapatkan ID
+                        $ids = \App\Models\MPresensi::where('name', 'ilike', "%{$search}%")
+                            ->pluck('id')
+                            ->toArray();
+                        return $query->whereIn('user_id', $ids);
                     })
                     ->sortable(),
                     
