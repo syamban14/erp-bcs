@@ -73,7 +73,7 @@ class LeaveBalance extends Model
                 'year' => $year,
             ],
             [
-                'quota' => 12, // Default quota
+                'quota' => 0,  // Quota 0 = belum dialokasikan. Diisi oleh seeder atau scheduler anniversary.
                 'used' => 0,
             ]
         );
