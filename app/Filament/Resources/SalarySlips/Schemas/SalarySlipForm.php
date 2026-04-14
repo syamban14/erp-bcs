@@ -59,6 +59,7 @@ class SalarySlipForm
                         \Filament\Forms\Components\FileUpload::make('pdf_path')
                             ->label('Format PDF (Slip Gaji)')
                             ->acceptedFileTypes(['application/pdf'])
+                            ->disk('public')
                             ->directory('payslips')
                             ->visibility('public')
                             ->preserveFilenames()

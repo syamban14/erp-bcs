@@ -28,6 +28,7 @@ class AnnouncementForm
                         \Filament\Forms\Components\FileUpload::make('image_url')
                             ->label('Gambar Lampiran (Opsional)')
                             ->image()
+                            ->disk('public')
                             ->directory('announcements')
                             ->visibility('public')
                             ->columnSpanFull(),
