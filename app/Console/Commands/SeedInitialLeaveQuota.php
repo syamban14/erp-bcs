@@ -12,12 +12,12 @@ class SeedInitialLeaveQuota extends Command
 {
     protected $signature = 'leave:seed-initial-quota';
 
-    protected $description = 'Mengisi kuota cuti awal (12 hari) untuk semua karyawan aktif yang sudah bekerja >= 1 tahun dan belum punya record di tahun berjalan.';
+    protected $description = 'Mengisi kuota cuti awal (12 hari) untuk semua karyawan aktif yang sudah bekerja >= 1 tahun, untuk setiap tahun yang belum memiliki record (termasuk 2025 ke belakang).';
 
     public function handle()
     {
         $currentYear = Carbon::now()->year;
-        $this->info("Memproses pengisian awal kuota cuti tahun {$currentYear}...");
+        $this->info("Memproses pengisian awal kuota cuti hingga tahun {$currentYear}...");
 
         $employees = MKaryawan::with('presensiAccount')
             ->where(function ($q) {
@@ -39,7 +39,7 @@ class SeedInitialLeaveQuota extends Command
                 continue;
             }
 
-            // Parse tanggal masuk
+            // Parse tanggal masuk dengan dua format yang umum
             $joinDate = null;
             try {
                 $raw = $karyawan->tgl_masuk;
@@ -52,7 +52,7 @@ class SeedInitialLeaveQuota extends Command
                 $joinDate = null;
             }
 
-            // Lewati jika tanggal tidak valid atau masa kerja < 1 tahun
+            // Lewati jika tanggal tidak valid atau total masa kerja < 1 tahun
             if (!$joinDate || Carbon::now()->diffInYears($joinDate) < 1) {
                 $skipped_tenure++;
                 continue;
@@ -60,29 +60,45 @@ class SeedInitialLeaveQuota extends Command
 
             $user = $karyawan->presensiAccount;
 
-            // Cek apakah sudah ada record untuk tahun ini
-            $existing = LeaveBalance::where('user_id', $user->id)
-                ->where('year', $currentYear)
-                ->first();
+            // Hitung tahun pertama karyawan layak mendapat cuti
+            // = tahun join + 1 (karena butuh 1 tahun kerja dulu)
+            $firstEligibleYear = $joinDate->year + 1;
 
-            if ($existing) {
-                $skipped_exists++;
-                continue;
+            // Loop dari tahun pertama layak hingga tahun sekarang
+            for ($year = $firstEligibleYear; $year <= $currentYear; $year++) {
+
+                // Periksa: sudah bekerja sejak tanggal anniversary di tahun ini?
+                // (Misal: join Mar 2022 → tahun 2023 anniversary-nya Mar 2023, sdh terlewati)
+                $anniversaryThisYear = $joinDate->copy()->year($year);
+                if ($anniversaryThisYear->isFuture()) {
+                    // Anniversary karyawan di tahun ini belum tiba
+                    continue;
+                }
+
+                // Cek apakah sudah ada record untuk tahun ini
+                $existing = LeaveBalance::where('user_id', $user->id)
+                    ->where('year', $year)
+                    ->exists();
+
+                if ($existing) {
+                    $skipped_exists++;
+                    continue;
+                }
+
+                // Buat record baru untuk tahun tersebut
+                LeaveBalance::create([
+                    'user_id' => $user->id,
+                    'year'    => $year,
+                    'quota'   => 12,
+                    'used'    => 0,
+                ]);
+
+                $created++;
+                $this->line("  [CREATE] {$karyawan->nama_karyawan} → kuota 12 tahun {$year}");
             }
-
-            // Buat record baru
-            LeaveBalance::create([
-                'user_id' => $user->id,
-                'year'    => $currentYear,
-                'quota'   => 12,
-                'used'    => 0,
-            ]);
-
-            $created++;
-            $this->line("  [CREATE] {$karyawan->nama_karyawan} → quota 12 untuk tahun {$currentYear}");
         }
 
-        $msg = "Selesai. Dibuat: {$created} | Sudah ada: {$skipped_exists} | Belum 1 tahun: {$skipped_tenure} | Tanpa akun: {$skipped_no_account}";
+        $msg = "Selesai. Dibuat: {$created} record | Sudah ada: {$skipped_exists} | Belum 1 tahun: {$skipped_tenure} | Tanpa akun: {$skipped_no_account}";
         $this->info($msg);
         Log::channel('daily')->info('SeedInitialLeaveQuota: ' . $msg);
     }
