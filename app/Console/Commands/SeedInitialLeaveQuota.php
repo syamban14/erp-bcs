@@ -112,18 +112,9 @@ class SeedInitialLeaveQuota extends Command
                 continue;
             }
 
-            $firstEligibleYear = $joinDate->year + 1;
+            $firstEligibleYear = $joinYear + 1;
 
             for ($year = $firstEligibleYear; $year <= $currentYear; $year++) {
-                try {
-                    $anniversary = $joinDate->copy()->year($year);
-                    if ($anniversary->isFuture()) {
-                        continue;
-                    }
-                } catch (\Exception $e) {
-                    continue;
-                }
-
                 // Cek di pgsql (default) apakah sudah ada record
                 $exists = LeaveBalance::where('user_id', $user->id)
                     ->where('year', $year)
