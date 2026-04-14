@@ -57,13 +57,71 @@ class MonthlyRecap extends Page implements HasForms, HasTable
     {
         return [
             \Filament\Actions\Action::make('export')
-                ->label('Export Excel')
+                ->label('Export CSV')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->action(function () {
-                    return \Maatwebsite\Excel\Facades\Excel::download(
-                        new \App\Exports\MonthlyRecapExport($this->month, $this->year, $this->unit),
-                        'monthly_recap_' . $this->month . '_' . $this->year . '.xlsx'
-                    );
+                    $month   = $this->month;
+                    $year    = $this->year;
+                    $unitId  = $this->unit;
+                    $service = app(\App\Services\RecapService::class);
+
+                    $endDate   = \Carbon\Carbon::create($year, $month, 15);
+                    $startDate = $endDate->copy()->subMonth()->addDay();
+
+                    $query = \App\Models\MPresensi::query()->orderBy('name');
+                    if ($unitId) {
+                        $query->where('office_location_id', $unitId);
+                    }
+                    $employees = $query->get();
+
+                    $filename = "monthly_recap_{$month}_{$year}.csv";
+
+                    $headers = [
+                        'Content-Type'        => 'text/csv; charset=UTF-8',
+                        'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+                        'Pragma'              => 'no-cache',
+                        'Cache-Control'       => 'must-revalidate, post-check=0, pre-check=0',
+                        'Expires'             => '0',
+                    ];
+
+                    $callback = function () use ($employees, $service, $startDate, $endDate) {
+                        $out = fopen('php://output', 'w');
+
+                        // BOM untuk Excel agar terbaca UTF-8 dengan benar
+                        fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
+
+                        // Header baris
+                        fputcsv($out, [
+                            'Nama Karyawan', 'Unit Kerja', 'Hari Kerja', 'Hadir',
+                            'Durasi (Jam)', 'Cuti Tahunan', 'Cuti Spesial', 'Sakit',
+                            'Izin (Kali)', 'Tugas Luar', 'Alpa',
+                            'Lembur (Jam)', 'Telat (Jam)', 'Pulang Awal (Jam)',
+                        ]);
+
+                        foreach ($employees as $emp) {
+                            $data = $service->getRecapData($emp, $startDate, $endDate);
+                            fputcsv($out, [
+                                $emp->name,
+                                $emp->officeLocation->name ?? '-',
+                                $data['total_hari_kerja'],
+                                $data['total_kehadiran'],
+                                $data['durasi_kehadiran'],
+                                $data['cuti_tahunan'],
+                                $data['cuti_special'],
+                                $data['cuti_sakit'],
+                                $data['izin_jam'],
+                                $data['tugas_luar'],
+                                $data['alpa'],
+                                $data['lembur_jam'],
+                                $data['terlambat_jam'],
+                                $data['pulang_awal_jam'],
+                            ]);
+                        }
+
+                        fclose($out);
+                    };
+
+                    return response()->stream($callback, 200, $headers);
                 }),
         ];
     }
