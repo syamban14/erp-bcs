@@ -26,7 +26,7 @@ class SalarySlipInfolist
                 TextEntry::make('pdf_path')
                     ->label('Dokumen Slip Gaji (PDF)')
                     ->formatStateUsing(fn ($state) => $state ? 'Terlampir' : 'Tidak Ada File')
-                    ->url(fn (\App\Models\SalarySlip $record) => $record->pdf_path ? asset('storage/' . $record->pdf_path) : null, true)
+                    ->url(fn (\App\Models\SalarySlip $record) => $record->pdf_path ? url('/api/v1/salaries/' . $record->id . '/export') : null, true)
                     ->color('success')
                     ->icon('heroicon-o-document-text'),
                 TextEntry::make('created_at')

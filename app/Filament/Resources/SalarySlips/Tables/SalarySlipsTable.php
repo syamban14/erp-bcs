@@ -48,8 +48,9 @@ class SalarySlipsTable
                     ->label('Unduh PDF')
                     ->icon('heroicon-o-document-arrow-down')
                     ->color('success')
-                    ->url(fn (\App\Models\SalarySlip $record): ?string => $record->pdf_path ? asset('storage/' . $record->pdf_path) : null)
-                    ->openUrlInNewTab()
+                    ->action(function (\App\Models\SalarySlip $record) {
+                        return response()->download(storage_path('app/public/' . $record->pdf_path));
+                    })
                     ->visible(fn (\App\Models\SalarySlip $record): bool => (bool)$record->pdf_path),
             ])
             ->toolbarActions([

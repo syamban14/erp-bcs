@@ -95,6 +95,6 @@ class SalarySlip extends Model
         if (!$this->pdf_path) {
             return null;
         }
-        return asset('storage/' . $this->pdf_path);
+        return url('/api/v1/salaries/' . $this->id . '/export');
     }
 }
