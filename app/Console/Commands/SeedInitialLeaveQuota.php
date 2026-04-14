@@ -20,32 +20,33 @@ class SeedInitialLeaveQuota extends Command
             return null;
         }
 
-        $formats = [
-            'd/m/Y',
-            'd/n/Y',
-            'Y-m-d',
-            'Y-m-d H:i:s',
-            'd-m-Y',
-            'n/j/Y',
-        ];
-
-        foreach ($formats as $format) {
-            try {
-                $date = Carbon::createFromFormat($format, $raw);
-                if ($date && $date->year >= 1970 && $date->year <= Carbon::now()->year) {
-                    return $date;
-                }
-            } catch (\Exception $e) {
-                continue;
-            }
-        }
+        $raw = trim($raw);
+        $date = null;
 
         try {
-            $date = Carbon::parse($raw);
-            if ($date && $date->year >= 1970 && $date->year <= Carbon::now()->year) {
-                return $date;
+            // Prioritas 1: YYYY-MM-DD atau YYYY-MM-DD HH:MM:SS (format PostgreSQL/ISO)
+            if (preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $raw, $m)) {
+                $date = Carbon::createFromFormat('Y-m-d', "{$m[1]}-{$m[2]}-{$m[3]}");
+
+            // Prioritas 2: DD/MM/YYYY (format lokal Indonesia, dua digit semua)
+            } elseif (preg_match('/^(\d{2})\/(\d{2})\/(\d{4})$/', $raw, $m)) {
+                $date = Carbon::createFromFormat('d/m/Y', $raw);
+
+            // Prioritas 3: D/M/YYYY atau DD/M/YYYY (tanpa zero-padding)
+            } elseif (preg_match('/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/', $raw, $m)) {
+                $date = Carbon::createFromFormat('j/n/Y', $raw);
+
+            // Prioritas 4: DD-MM-YYYY
+            } elseif (preg_match('/^(\d{2})-(\d{2})-(\d{4})$/', $raw, $m)) {
+                $date = Carbon::createFromFormat('d-m-Y', $raw);
             }
-        } catch (\Exception $e) {}
+        } catch (\Exception $e) {
+            return null;
+        }
+
+        if ($date && $date->year >= 1970 && $date->year <= Carbon::now()->year) {
+            return $date;
+        }
 
         return null;
     }
