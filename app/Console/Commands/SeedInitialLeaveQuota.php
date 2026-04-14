@@ -69,28 +69,44 @@ class SeedInitialLeaveQuota extends Command
         $skipped_exists = 0;
         $skipped_no_karyawan = 0;
         $skipped_bad_date = 0;
+        $debugCount = 0;
 
         foreach ($users as $user) {
-            // Ambil tgl_masuk dari tabel m_karyawan di pgsql_master
             $karyawan = DB::connection('pgsql_master')
                 ->table('m_karyawan')
                 ->where('id', $user->karyawan_id)
-                ->first(['nama_karyawan', 'tgl_masuk', 'aktif']);
+                ->first(['nama_karyawan', 'tgl_masuk']);
 
             if (!$karyawan) {
                 $skipped_no_karyawan++;
                 continue;
             }
 
-            $joinDate = $this->parseJoinDate($karyawan->tgl_masuk);
+            $raw = trim((string) $karyawan->tgl_masuk);
 
-            if (!$joinDate) {
+            // Deteksi tahun dari format YYYY-MM-DD atau DD/MM/YYYY
+            $joinYear = null;
+            if (preg_match('/^(\d{4})-\d{2}-\d{2}/', $raw, $m)) {
+                // Format ISO: YYYY-MM-DD
+                $joinYear = (int) $m[1];
+            } elseif (preg_match('/^\d{2}\/\d{2}\/(\d{4})$/', $raw, $m)) {
+                // Format Lokal: DD/MM/YYYY
+                $joinYear = (int) $m[1];
+            }
+
+            // Debug: cetak 3 user pertama untuk verifikasi
+            if ($debugCount < 3) {
+                $this->line("  [DEBUG] {$karyawan->nama_karyawan}: tgl_masuk=[{$raw}] joinYear=[{$joinYear}] currentYear=[{$currentYear}]");
+                $debugCount++;
+            }
+
+            if (!$joinYear || $joinYear <= 0) {
                 $skipped_bad_date++;
-                $this->line("  [SKIP-DATE] {$karyawan->nama_karyawan} — format tgl_masuk tidak dikenali: [{$karyawan->tgl_masuk}]");
                 continue;
             }
 
-            $yearsWorked = Carbon::now()->diffInYears($joinDate);
+            // Cek: masa kerja >= 1 tahun (perbandingan tahun langsung)
+            $yearsWorked = $currentYear - $joinYear;
             if ($yearsWorked < 1) {
                 $skipped_tenure++;
                 continue;
