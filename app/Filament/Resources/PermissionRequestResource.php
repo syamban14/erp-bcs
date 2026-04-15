@@ -84,7 +84,7 @@ class PermissionRequestResource extends Resource
 
                 Tables\Columns\TextColumn::make('reason')
                     ->label('Reason')
-                    ->limit(30),
+                    ->wrap(),
 
                 // ─── Approval Progress ─────────────────────────────────────
                 Tables\Columns\TextColumn::make('approval_progress')
