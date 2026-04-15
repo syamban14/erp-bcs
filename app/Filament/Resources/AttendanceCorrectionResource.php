@@ -98,7 +98,7 @@ class AttendanceCorrectionResource extends Resource
 
                 Tables\Columns\TextColumn::make('reason')
                     ->label('Reason')
-                    ->limit(20),
+                    ->wrap(),
 
                 Tables\Columns\TextColumn::make('evidence')
                     ->label('Evidence')
