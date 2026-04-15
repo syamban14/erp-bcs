@@ -24,22 +24,22 @@ class OutstationRequestForm
                     ->label('Jenis Tugas')
                     ->disabled(),
 
-                \Filament\Forms\Components\Group::make()
-                    ->columns(4)
-                    ->schema([
                         \Filament\Forms\Components\DatePicker::make('start_date')
                             ->label('Tanggal Mulai')
-                            ->disabled(),
+                            ->disabled()
+                            ->columnSpan(['sm' => 2, 'xl' => 1]),
                         \Filament\Forms\Components\TextInput::make('start_time')
                             ->label('Jam Mulai')
-                            ->disabled(),
+                            ->disabled()
+                            ->columnSpan(['sm' => 2, 'xl' => 1]),
                         \Filament\Forms\Components\DatePicker::make('end_date')
                             ->label('Tanggal Selesai')
-                            ->disabled(),
+                            ->disabled()
+                            ->columnSpan(['sm' => 2, 'xl' => 1]),
                         \Filament\Forms\Components\TextInput::make('end_time')
                             ->label('Jam Selesai')
-                            ->disabled(),
-                    ]),
+                            ->disabled()
+                            ->columnSpan(['sm' => 2, 'xl' => 1]),
 
                 \Filament\Forms\Components\TextInput::make('location')
                     ->label('Lokasi')
@@ -62,16 +62,12 @@ class OutstationRequestForm
                     )
                     ->columnSpanFull(),
 
-                \Filament\Forms\Components\Group::make()
-                    ->columns(2)
-                    ->schema([
                         \Filament\Forms\Components\TextInput::make('latitude')
                             ->numeric()
                             ->disabled(),
                         \Filament\Forms\Components\TextInput::make('longitude')
                             ->numeric()
                             ->disabled(),
-                    ]),
 
                 \Filament\Forms\Components\Select::make('status')
                     ->label('Status Approval')
