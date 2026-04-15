@@ -27,97 +27,220 @@ Route::prefix('admin-api')->group(function () {
     Route::post('/leaves/{id}/reject', [AdminActionController::class, 'rejectLeave']);
 });
 
-// ── Export Monthly Recap (GET langsung, tidak lewat Livewire AJAX) ─────────
+// ── Export Monthly Recap (SpreadsheetML — format Excel native, tanpa library) ─
 Route::get('/admin/monthly-recap/export', function (\Illuminate\Http\Request $request) {
     if (! auth()->check()) {
-        abort(403);
+        abort(403, 'Unauthorized');
     }
 
     $month  = (int) $request->query('month', now()->month);
     $year   = (int) $request->query('year',  now()->year);
     $unitId = $request->query('unit');
 
-    $service   = app(\App\Services\RecapService::class);
-    $endDate   = \Carbon\Carbon::create($year, $month, 15);
-    $startDate = $endDate->copy()->subMonth()->addDay();
+    try {
+        $service   = app(\App\Services\RecapService::class);
+        $endDate   = \Carbon\Carbon::create($year, $month, 15);
+        $startDate = $endDate->copy()->subMonth()->addDay();
 
-    $query = \App\Models\MPresensi::query()->with('officeLocation')->orderBy('name');
-    if ($unitId) {
-        $query->where('office_location_id', $unitId);
+        $query = \App\Models\MPresensi::query()->with('officeLocation')->orderBy('name');
+        if ($unitId) {
+            $query->where('office_location_id', $unitId);
+        }
+        $employees = $query->get();
+
+        $period   = $startDate->format('d M Y') . ' - ' . $endDate->format('d M Y');
+        $printed  = now()->format('d M Y H:i');
+        $filename = "recap_presensi_{$month}_{$year}.xls";
+
+        // ── Helper: escape untuk XML ──────────────────────────────────────
+        $x = fn($v) => htmlspecialchars((string)$v, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+
+        // ── Helper: buat Cell dengan style ───────────────────────────────
+        $cell = function ($val, $type = 'String', $style = 'DataLeft') use ($x) {
+            return "<Cell ss:StyleID=\"{$style}\"><Data ss:Type=\"{$type}\">{$x($val)}</Data></Cell>";
+        };
+        $numCell = function ($val, $style = 'DataCenter') use ($x) {
+            $type = is_numeric($val) ? 'Number' : 'String';
+            return "<Cell ss:StyleID=\"{$style}\"><Data ss:Type=\"{$type}\">{$x($val)}</Data></Cell>";
+        };
+
+        // ── Bangun XML ────────────────────────────────────────────────────
+        ob_start();
+
+        // BOM + deklarasi XML (WAJIB ada di baris pertama, tanpa spasi sebelumnya)
+        echo "\xEF\xBB\xBF"; // UTF-8 BOM
+        echo '<?xml version="1.0" encoding="UTF-8"?>' . "\r\n";
+        echo '<?mso-application progid="Excel.Sheet"?>' . "\r\n";
+        echo '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">' . "\r\n";
+
+        // ── Styles ────────────────────────────────────────────────────────
+        echo '<Styles>
+  <Style ss:ID="Default"><Font ss:FontName="Calibri" ss:Size="11"/></Style>
+  <Style ss:ID="Title">
+    <Font ss:FontName="Calibri" ss:Size="14" ss:Bold="1" ss:Color="#1E3A5F"/>
+  </Style>
+  <Style ss:ID="Subtitle">
+    <Font ss:FontName="Calibri" ss:Size="10" ss:Color="#666666"/>
+  </Style>
+  <Style ss:ID="Header">
+    <Font ss:FontName="Calibri" ss:Size="10" ss:Bold="1" ss:Color="#FFFFFF"/>
+    <Interior ss:Color="#1E3A5F" ss:Pattern="Solid"/>
+    <Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/>
+    <Borders>
+      <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#AAAAAA"/>
+      <Border ss:Position="Left"   ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#AAAAAA"/>
+      <Border ss:Position="Right"  ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#AAAAAA"/>
+      <Border ss:Position="Top"    ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#AAAAAA"/>
+    </Borders>
+  </Style>
+  <Style ss:ID="DataLeft">
+    <Font ss:FontName="Calibri" ss:Size="10"/>
+    <Borders>
+      <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#DDDDDD"/>
+      <Border ss:Position="Left"   ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#DDDDDD"/>
+      <Border ss:Position="Right"  ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#DDDDDD"/>
+      <Border ss:Position="Top"    ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#DDDDDD"/>
+    </Borders>
+  </Style>
+  <Style ss:ID="DataCenter">
+    <Font ss:FontName="Calibri" ss:Size="10"/>
+    <Alignment ss:Horizontal="Center"/>
+    <Borders>
+      <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#DDDDDD"/>
+      <Border ss:Position="Left"   ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#DDDDDD"/>
+      <Border ss:Position="Right"  ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#DDDDDD"/>
+      <Border ss:Position="Top"    ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#DDDDDD"/>
+    </Borders>
+  </Style>
+  <Style ss:ID="NumVal">
+    <Font ss:FontName="Calibri" ss:Size="10" ss:Bold="1" ss:Color="#1E3A5F"/>
+    <Alignment ss:Horizontal="Center"/>
+    <Borders>
+      <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#DDDDDD"/>
+      <Border ss:Position="Left"   ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#DDDDDD"/>
+      <Border ss:Position="Right"  ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#DDDDDD"/>
+      <Border ss:Position="Top"    ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#DDDDDD"/>
+    </Borders>
+  </Style>
+  <Style ss:ID="NumWarn">
+    <Font ss:FontName="Calibri" ss:Size="10" ss:Bold="1" ss:Color="#CC6600"/>
+    <Alignment ss:Horizontal="Center"/>
+    <Borders>
+      <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#DDDDDD"/>
+      <Border ss:Position="Left"   ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#DDDDDD"/>
+      <Border ss:Position="Right"  ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#DDDDDD"/>
+      <Border ss:Position="Top"    ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#DDDDDD"/>
+    </Borders>
+  </Style>
+  <Style ss:ID="NumDanger">
+    <Font ss:FontName="Calibri" ss:Size="10" ss:Bold="1" ss:Color="#CC0000"/>
+    <Alignment ss:Horizontal="Center"/>
+    <Borders>
+      <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#DDDDDD"/>
+      <Border ss:Position="Left"   ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#DDDDDD"/>
+      <Border ss:Position="Right"  ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#DDDDDD"/>
+      <Border ss:Position="Top"    ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#DDDDDD"/>
+    </Borders>
+  </Style>
+  <Style ss:ID="NumZero">
+    <Font ss:FontName="Calibri" ss:Size="10" ss:Color="#BBBBBB"/>
+    <Alignment ss:Horizontal="Center"/>
+    <Borders>
+      <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#DDDDDD"/>
+      <Border ss:Position="Left"   ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#DDDDDD"/>
+      <Border ss:Position="Right"  ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#DDDDDD"/>
+      <Border ss:Position="Top"    ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#DDDDDD"/>
+    </Borders>
+  </Style>
+</Styles>' . "\r\n";
+
+        // ── Worksheet ─────────────────────────────────────────────────────
+        echo '<Worksheet ss:Name="Rekap Presensi">' . "\r\n";
+        echo '<Table ss:DefaultColumnWidth="70">' . "\r\n";
+
+        // Column widths
+        $colWidths = [30, 160, 120, 60, 60, 70, 70, 70, 60, 60, 70, 60, 70, 70, 80];
+        foreach ($colWidths as $w) {
+            echo "<Column ss:Width=\"{$w}\"/>\r\n";
+        }
+
+        // Judul
+        echo "<Row ss:Height=\"20\">"
+            . "<Cell ss:MergeAcross=\"14\" ss:StyleID=\"Title\"><Data ss:Type=\"String\">REKAP PRESENSI KARYAWAN</Data></Cell>"
+            . "</Row>\r\n";
+
+        echo "<Row>"
+            . "<Cell ss:MergeAcross=\"14\" ss:StyleID=\"Subtitle\"><Data ss:Type=\"String\">Periode: {$x($period)}</Data></Cell>"
+            . "</Row>\r\n";
+
+        echo "<Row>"
+            . "<Cell ss:MergeAcross=\"14\" ss:StyleID=\"Subtitle\"><Data ss:Type=\"String\">Dicetak: {$x($printed)}</Data></Cell>"
+            . "</Row>\r\n";
+
+        // Baris kosong
+        echo "<Row ss:Height=\"6\"><Cell ss:MergeAcross=\"14\"><Data ss:Type=\"String\"></Data></Cell></Row>\r\n";
+
+        // Header kolom
+        $headers = ['No','Nama Karyawan','Unit Kerja','Hari Kerja','Hadir','Durasi (Jam)','Cuti Tahunan','Cuti Spesial','Sakit','Izin (Jam)','Tugas Luar','Alpa','Lembur (Jam)','Telat (Jam)','Pulang Awal (Jam)'];
+        echo "<Row ss:Height=\"32\">";
+        foreach ($headers as $h) {
+            echo "<Cell ss:StyleID=\"Header\"><Data ss:Type=\"String\">{$x($h)}</Data></Cell>";
+        }
+        echo "</Row>\r\n";
+
+        // Data rows
+        $no = 1;
+        foreach ($employees as $emp) {
+            try {
+                $d = $service->getRecapData($emp, $startDate, $endDate);
+            } catch (\Throwable $e) {
+                // Jika satu karyawan error, isi dengan 0 dan lanjut
+                $d = array_fill_keys(['total_hari_kerja','total_kehadiran','durasi_kehadiran','cuti_tahunan','cuti_special','cuti_sakit','izin_jam','tugas_luar','alpa','lembur_jam','terlambat_jam','pulang_awal_jam'], 0);
+            }
+
+            $alpaStyle  = $d['alpa'] > 0 ? 'NumDanger' : 'NumZero';
+            $hadirStyle = $d['total_kehadiran'] >= $d['total_hari_kerja'] ? 'NumVal' : 'NumWarn';
+
+            echo "<Row ss:Height=\"18\">";
+            echo $cell($no,                                'Number', 'DataCenter');
+            echo $cell($emp->name,                         'String', 'DataLeft');
+            echo $cell($emp->officeLocation->name ?? '-',  'String', 'DataLeft');
+            echo $numCell($d['total_hari_kerja'],  'DataCenter');
+            echo $numCell($d['total_kehadiran'],   $hadirStyle);
+            echo $numCell($d['durasi_kehadiran'],  'DataCenter');
+            echo $numCell($d['cuti_tahunan'],  $d['cuti_tahunan']  > 0 ? 'NumVal'    : 'NumZero');
+            echo $numCell($d['cuti_special'],  $d['cuti_special']  > 0 ? 'NumVal'    : 'NumZero');
+            echo $numCell($d['cuti_sakit'],    $d['cuti_sakit']    > 0 ? 'NumWarn'   : 'NumZero');
+            echo $numCell($d['izin_jam'],      $d['izin_jam']      > 0 ? 'NumWarn'   : 'NumZero');
+            echo $numCell($d['tugas_luar'],    'DataCenter');
+            echo $numCell($d['alpa'],          $alpaStyle);
+            echo $numCell($d['lembur_jam'],    $d['lembur_jam']    > 0 ? 'NumVal'    : 'NumZero');
+            echo $numCell($d['terlambat_jam'], $d['terlambat_jam'] > 0 ? 'NumWarn'   : 'NumZero');
+            echo $numCell($d['pulang_awal_jam'], $d['pulang_awal_jam'] > 0 ? 'NumWarn' : 'NumZero');
+            echo "</Row>\r\n";
+            $no++;
+        }
+
+        echo "</Table>\r\n</Worksheet>\r\n</Workbook>";
+
+        $content = ob_get_clean();
+
+    } catch (\Throwable $e) {
+        ob_end_clean();
+        abort(500, 'Gagal membuat export: ' . $e->getMessage());
     }
-    $employees = $query->get();
 
-    $period   = $startDate->format('d M Y') . ' - ' . $endDate->format('d M Y');
-    $filename = "recap_presensi_{$month}_{$year}.xls";
-
-    $headers = [
-        'Content-Type'        => 'application/vnd.ms-excel',
+    return response($content, 200, [
+        'Content-Type'        => 'application/vnd.ms-excel; charset=UTF-8',
         'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        'Content-Length'      => strlen($content),
         'Pragma'              => 'no-cache',
         'Cache-Control'       => 'must-revalidate, post-check=0, pre-check=0',
         'Expires'             => '0',
-    ];
-
-    $callback = function () use ($employees, $service, $startDate, $endDate, $period) {
-        echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
-        echo '<html xmlns:o="urn:schemas-microsoft-com:office:office"
-               xmlns:x="urn:schemas-microsoft-com:office:excel"
-               xmlns="http://www.w3.org/TR/REC-html40">';
-        echo '<head><meta charset="UTF-8">
-            <style>
-                body{font-family:Calibri,Arial,sans-serif;font-size:11pt}
-                table{border-collapse:collapse}
-                th{background:#1E3A5F;color:#FFF;font-weight:bold;text-align:center;padding:6px 8px;border:1px solid #AAA;font-size:10pt;white-space:nowrap}
-                td{padding:5px 8px;border:1px solid #DDD;font-size:10pt;vertical-align:middle}
-                tr:nth-child(even) td{background:#F5F8FF}
-                .title{font-size:14pt;font-weight:bold;color:#1E3A5F}
-                .subtitle{font-size:10pt;color:#555}
-                .center{text-align:center}
-                .num-zero{color:#BBBBBB;text-align:center}
-                .num-val{color:#1E3A5F;font-weight:bold;text-align:center}
-                .danger{color:#CC0000;font-weight:bold;text-align:center}
-                .warning{color:#CC6600;font-weight:bold;text-align:center}
-            </style></head><body>';
-
-        echo '<table>';
-        echo "<tr><td colspan='15' class='title'>Rekap Presensi Karyawan</td></tr>";
-        echo "<tr><td colspan='15' class='subtitle'>Periode: {$period}</td></tr>";
-        echo "<tr><td colspan='15' class='subtitle'>Dicetak: " . now()->format('d M Y H:i') . "</td></tr>";
-        echo "<tr><td colspan='15'>&nbsp;</td></tr>";
-        echo "<tr>
-            <th>No</th><th>Nama Karyawan</th><th>Unit Kerja</th>
-            <th>Hari Kerja</th><th>Hadir</th><th>Durasi (Jam)</th>
-            <th>Cuti Tahunan</th><th>Cuti Spesial</th><th>Sakit</th>
-            <th>Izin</th><th>Tugas Luar</th><th>Alpa</th>
-            <th>Lembur (Jam)</th><th>Telat (Jam)</th><th>Pulang Awal (Jam)</th>
-        </tr>";
-
-        $no = 1;
-        foreach ($employees as $emp) {
-            $d = $service->getRecapData($emp, $startDate, $endDate);
-            $alpaClass  = $d['alpa'] > 0 ? 'danger' : 'num-zero';
-            $hadirClass = $d['total_kehadiran'] >= $d['total_hari_kerja'] ? 'num-val' : 'warning';
-            echo "<tr>
-                <td class='center'>{$no}</td>
-                <td>" . e($emp->name) . "</td>
-                <td>" . e($emp->officeLocation->name ?? '-') . "</td>
-                <td class='center'>{$d['total_hari_kerja']}</td>
-                <td class='{$hadirClass}'>{$d['total_kehadiran']}</td>
-                <td class='center'>{$d['durasi_kehadiran']}</td>
-                <td class='" . ($d['cuti_tahunan']  > 0 ? 'num-val' : 'num-zero') . "'>{$d['cuti_tahunan']}</td>
-                <td class='" . ($d['cuti_special']  > 0 ? 'num-val' : 'num-zero') . "'>{$d['cuti_special']}</td>
-                <td class='" . ($d['cuti_sakit']    > 0 ? 'warning' : 'num-zero') . "'>{$d['cuti_sakit']}</td>
-                <td class='" . ($d['izin_jam']       > 0 ? 'warning' : 'num-zero') . "'>{$d['izin_jam']}</td>
-                <td class='center'>{$d['tugas_luar']}</td>
-                <td class='{$alpaClass}'>{$d['alpa']}</td>
-                <td class='" . ($d['lembur_jam']      > 0 ? 'num-val' : 'num-zero') . "'>{$d['lembur_jam']}</td>
-                <td class='" . ($d['terlambat_jam']   > 0 ? 'warning' : 'num-zero') . "'>{$d['terlambat_jam']}</td>
-                <td class='" . ($d['pulang_awal_jam'] > 0 ? 'warning' : 'num-zero') . "'>{$d['pulang_awal_jam']}</td>
-            </tr>";
-            $no++;
-        }
-        echo '</table></body></html>';
-    };
-
-    return response()->stream($callback, 200, $headers);
+    ]);
 })->middleware('web');
+
