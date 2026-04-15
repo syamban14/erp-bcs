@@ -24,7 +24,8 @@ class OutstationRequestForm
                     ->label('Jenis Tugas')
                     ->disabled(),
 
-                \Filament\Forms\Components\Grid::make(4)
+                \Filament\Forms\Components\Group::make()
+                    ->columns(4)
                     ->schema([
                         \Filament\Forms\Components\DatePicker::make('start_date')
                             ->label('Tanggal Mulai')
@@ -61,7 +62,8 @@ class OutstationRequestForm
                     )
                     ->columnSpanFull(),
 
-                \Filament\Forms\Components\Grid::make(2)
+                \Filament\Forms\Components\Group::make()
+                    ->columns(2)
                     ->schema([
                         \Filament\Forms\Components\TextInput::make('latitude')
                             ->numeric()
