@@ -72,10 +72,11 @@ class LeaveBalanceResource extends Resource
                     ->label('Sudah Terpakai (Hari)')
                     ->numeric()
                     ->default(0)
-                    ->helperText('Jumlah hari cuti yang sudah digunakan (auto-update saat leave approved)')
+                    ->helperText('Jumlah hari cuti yang sudah digunakan. Bisa dikoreksi manual jika diperlukan.')
                     ->minValue(0)
-                    ->disabled()
-                    ->dehydrated(true),
+                    ->maxValue(365)
+                    ->disabled(fn (string $operation): bool => $operation === 'create')
+                    ->dehydrated(fn (string $operation): bool => $operation === 'edit'),
             ]);
     }
 

@@ -113,10 +113,8 @@ class MKaryawanResource extends Resource
                                 $karyawanGrouped = \App\Models\MKaryawan::select('title', 'nama_karyawan')->get()->groupBy('title');
                                 return \App\Models\MTitle::query()->select('title_code', 'title')->get()->unique('title_code')->mapWithKeys(function ($t) use ($karyawanGrouped) {
                                     $emps = $karyawanGrouped->get($t->title_code, collect());
-                                    $firstName = $emps->first()?->nama_karyawan;
-                                    $count     = $emps->count();
-                                    $extra     = $count > 1 ? ' (+' . ($count - 1) . ' org)' : '';
-                                    $label     = $firstName ? "{$t->title} — {$firstName}{$extra}" : $t->title;
+                                    $allNames = $emps->pluck('nama_karyawan')->implode(', ');
+                                    $label = $allNames ? "{$t->title} — [{$allNames}]" : $t->title;
                                     return [$t->title_code => $label];
                                 })->toArray();
                             })
@@ -156,10 +154,8 @@ class MKaryawanResource extends Resource
                                 $karyawanGrouped = \App\Models\MKaryawan::select('title', 'nama_karyawan')->get()->groupBy('title');
                                 return \App\Models\MTitle::query()->select('title_code', 'title')->get()->unique('title_code')->mapWithKeys(function ($t) use ($karyawanGrouped) {
                                     $emps = $karyawanGrouped->get($t->title_code, collect());
-                                    $firstName = $emps->first()?->nama_karyawan;
-                                    $count     = $emps->count();
-                                    $extra     = $count > 1 ? ' (+' . ($count - 1) . ' org)' : '';
-                                    $label     = $firstName ? "{$t->title} — {$firstName}{$extra}" : $t->title;
+                                    $allNames = $emps->pluck('nama_karyawan')->implode(', ');
+                                    $label = $allNames ? "{$t->title} — [{$allNames}]" : $t->title;
                                     return [$t->title_code => $label];
                                 })->toArray();
                             })
