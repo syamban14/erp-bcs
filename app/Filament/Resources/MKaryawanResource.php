@@ -111,13 +111,12 @@ class MKaryawanResource extends Resource
                             ->label('Atasan (Berdasarkan Jabatan Karyawan Ini)')
                             ->options(function () {
                                 $karyawanGrouped = \App\Models\MKaryawan::select('title', 'nama_karyawan')->get()->groupBy('title');
-                                // Use unique by title_code to prevent duplicate options
                                 return \App\Models\MTitle::query()->select('title_code', 'title')->get()->unique('title_code')->mapWithKeys(function ($t) use ($karyawanGrouped) {
                                     $emps = $karyawanGrouped->get($t->title_code, collect());
-                                    $names = $emps->take(3)->pluck('nama_karyawan')->implode(', ');
-                                    $count = $emps->count();
-                                    if ($count > 3) $names .= " dll ({$count} org)";
-                                    $label = $names ? "{$t->title} — [{$names}]" : $t->title;
+                                    $firstName = $emps->first()?->nama_karyawan;
+                                    $count     = $emps->count();
+                                    $extra     = $count > 1 ? ' (+' . ($count - 1) . ' org)' : '';
+                                    $label     = $firstName ? "{$t->title} — {$firstName}{$extra}" : $t->title;
                                     return [$t->title_code => $label];
                                 })->toArray();
                             })
@@ -157,10 +156,10 @@ class MKaryawanResource extends Resource
                                 $karyawanGrouped = \App\Models\MKaryawan::select('title', 'nama_karyawan')->get()->groupBy('title');
                                 return \App\Models\MTitle::query()->select('title_code', 'title')->get()->unique('title_code')->mapWithKeys(function ($t) use ($karyawanGrouped) {
                                     $emps = $karyawanGrouped->get($t->title_code, collect());
-                                    $names = $emps->take(3)->pluck('nama_karyawan')->implode(', ');
-                                    $count = $emps->count();
-                                    if ($count > 3) $names .= " dll ({$count} org)";
-                                    $label = $names ? "{$t->title} — [{$names}]" : $t->title;
+                                    $firstName = $emps->first()?->nama_karyawan;
+                                    $count     = $emps->count();
+                                    $extra     = $count > 1 ? ' (+' . ($count - 1) . ' org)' : '';
+                                    $label     = $firstName ? "{$t->title} — {$firstName}{$extra}" : $t->title;
                                     return [$t->title_code => $label];
                                 })->toArray();
                             })
@@ -200,11 +199,13 @@ class MKaryawanResource extends Resource
                             ->label('Status')
                             ->options([
                                 'PERMANENT' => 'PERMANENT (TETAP)',
-                                'CONTRACT' => 'CONTRACT (KONTRAK)',
-                                'INTERNSHIP' => 'MAGANG',
-                                'RESIGN' => 'RESIGN',
-                                'TETAP' => 'TETAP',
-                                'KONTRAK' => 'KONTRAK',
+                                'CONTRACT'  => 'CONTRACT (KONTRAK)',
+                                'HARIAN'    => 'HARIAN',
+                                'INTERNSHIP'=> 'MAGANG / INTERNSHIP',
+                                'RESIGN'    => 'RESIGN',
+                                'TETAP'     => 'TETAP',
+                                'KONTRAK'   => 'KONTRAK',
+                                'PKWT'      => 'PKWT',
                             ])
                             ->searchable(),
                             
@@ -246,12 +247,27 @@ class MKaryawanResource extends Resource
                     ->label('Jabatan / Title')
                     ->searchable()
                     ->placeholder('-')
+                    ->formatStateUsing(function ($state, MKaryawan $record) {
+                        if (!$state) return '-';
+                        return $record->titleInfo?->title ?? $state;
+                    })
                     ->toggleable(),
 
                 Tables\Columns\TextColumn::make('cost_sales_id')
                     ->label('Cost Sales')
                     ->searchable()
                     ->placeholder('-')
+                    ->formatStateUsing(function ($state, MKaryawan $record) {
+                        if (!$state) return '-';
+                        $cs = $record->costSalesInfo;
+                        if (!$cs) return $state;
+                        // Coba kolom nama yang mungkin ada di tabel m_cost_sales
+                        return $cs->cost_sales_name
+                            ?? $cs->cost_sales_desc
+                            ?? $cs->description
+                            ?? $cs->name
+                            ?? $state;
+                    })
                     ->badge()
                     ->color('info')
                     ->toggleable(),

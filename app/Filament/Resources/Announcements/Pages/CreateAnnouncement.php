@@ -12,13 +12,21 @@ class CreateAnnouncement extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        $user = auth()->user()->load('karyawan.department');
-        
+        $user = auth()->user()->load('karyawan.division');
+
         if ($user && $user->karyawan) {
-            $data['author_name'] = $user->karyawan->nama_karyawan;
-            $data['author_division'] = $user->karyawan->department ? $user->karyawan->department->div_name : 'Manajemen';
+            $data['author_name']     = $user->karyawan->nama_karyawan;
+            // Prioritas: divisi → departemen → fallback
+            $karyawan = $user->karyawan;
+            if ($karyawan->division) {
+                $data['author_division'] = $karyawan->division->div_name;
+            } elseif ($karyawan->dept_id) {
+                $data['author_division'] = \App\Models\MDept::where('dept_code', $karyawan->dept_id)->value('dept_name') ?? 'Manajemen';
+            } else {
+                $data['author_division'] = 'Manajemen';
+            }
         } else {
-            $data['author_name'] = $user->name ?? 'Admin / HRD';
+            $data['author_name']     = $user->name ?? 'Admin / HRD';
             $data['author_division'] = 'Manajemen';
         }
 

@@ -198,6 +198,7 @@ class OvertimeRequestResource extends Resource
                     ->label('Approval Chain')
                     ->icon('heroicon-o-clock')
                     ->color('gray')
+                    ->modalIcon(null)
                     ->modalHeading('Approval Chain History')
                     ->modalContent(function ($record) {
                         $flows   = $record->approvalFlows()->with('approver')->get();
