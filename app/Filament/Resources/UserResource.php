@@ -45,7 +45,7 @@ class UserResource extends Resource
                     })
                     ->searchable()
                     ->live()
-                    ->afterStateUpdated(function ($state, Forms\Set $set) {
+                    ->afterStateUpdated(function ($state, $set) {
                         if ($state) {
                             $mobileAccount = \App\Models\MPresensi::find($state);
                             if ($mobileAccount) {
