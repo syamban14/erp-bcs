@@ -14,8 +14,14 @@ class SalarySlipController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
+        $payrollId = $user->karyawan?->payroll_id;
         
-        $query = SalarySlip::where('user_id', $user->id);
+        $query = SalarySlip::where(function($q) use ($user, $payrollId) {
+            $q->where('user_id', $user->id);
+            if ($payrollId) {
+                $q->orWhere('employee_nik', $payrollId);
+            }
+        });
         
         // Filter by year
         if ($request->has('year')) {
@@ -51,10 +57,16 @@ class SalarySlipController extends Controller
     public function show($id, Request $request)
     {
         $user = $request->user();
+        $payrollId = $user->karyawan?->payroll_id;
         
-        $slip = SalarySlip::with('deductions') // Eager load deductions
+        $slip = SalarySlip::with('deductions')
             ->where('id', $id)
-            ->where('user_id', $user->id)
+            ->where(function($q) use ($user, $payrollId) {
+                $q->where('user_id', $user->id);
+                if ($payrollId) {
+                    $q->orWhere('employee_nik', $payrollId);
+                }
+            })
             ->first();
         
         if (!$slip) {
@@ -155,7 +167,10 @@ class SalarySlipController extends Controller
         }
 
         // Keamanan: karyawan hanya boleh download miliknya sendiri
-        if ($slip->user_id != $user->id) {
+        $payrollId = $user->karyawan?->payroll_id;
+        $isOwner = $slip->user_id == $user->id || ($payrollId && $slip->employee_nik == $payrollId);
+        
+        if (!$isOwner) {
             return response()->json([
                 'meta' => ['code' => 403, 'status' => 'error', 'message' => 'Anda tidak memiliki akses ke dokumen ini.'],
                 'data' => null,

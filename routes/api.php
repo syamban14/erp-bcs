@@ -148,6 +148,19 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/announcements', [App\Http\Controllers\Api\v1\AnnouncementController::class, 'index']);
     Route::post('/announcements/read', [App\Http\Controllers\Api\v1\AnnouncementController::class, 'markAsRead']);
     Route::post('/announcements/greet', [App\Http\Controllers\Api\v1\AnnouncementController::class, 'greet']);
+    // Temp route to read Excel structure
+    Route::get('/read-excel', function () {
+        $filePath = base_path('Epayslip.xlsx');
+        if (!file_exists($filePath)) return response()->json(['error' => 'No file']);
+        
+        $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($filePath);
+        $reader->setReadDataOnly(true);
+        $spreadsheet = $reader->load($filePath);
+        $worksheet = $spreadsheet->getActiveSheet();
+        $rows = array_slice($worksheet->toArray(), 0, 5); // first 5 rows
+        
+        return response()->json($rows);
+    });
 
     // File Proxy — streaming file upload langsung dari storage (tanpa bergantung symlink/nginx)
     // Atasan bisa akses file bukti karyawan via endpoint ini menggunakan token mereka

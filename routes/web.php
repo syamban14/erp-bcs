@@ -7,6 +7,19 @@ Route::get('/', function () {
     return redirect('/admin');
 });
 
+Route::get('/read-excel', function () {
+    $filePath = base_path('Epayslip.xlsx');
+    if (!file_exists($filePath)) return response()->json(['error' => 'No file']);
+    
+    $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($filePath);
+    $reader->setReadDataOnly(true);
+    $spreadsheet = $reader->load($filePath);
+    $worksheet = $spreadsheet->getActiveSheet();
+    $rows = array_slice($worksheet->toArray(), 0, 8);
+    
+    return response()->json($rows);
+});
+
 // Approval Center - Simple UI for approve/reject
 Route::get('/approval-center', function () {
     return view('approval-center');
