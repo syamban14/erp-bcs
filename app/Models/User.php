@@ -6,8 +6,10 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 
-class User extends Authenticatable
+class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, \Spatie\Permission\Traits\HasRoles;
@@ -91,5 +93,22 @@ class User extends Authenticatable
         $year = $year ?? date('Y');
         $balance = \App\Models\LeaveBalance::getOrCreateForUser($this, $year);
         $balance->deductQuota($days);
+    }
+    
+    /**
+     * Tentukan siapa saja yang bisa masuk ke Filament Admin Panel di Server
+     */
+    public function canAccessPanel(Panel $panel): bool
+    {
+        // Berikan akses otomatis ke email-email yang ditunjuk sebagai Superadmin Server
+        if (in_array(strtolower($this->email), [
+            'windyriche@gmail.com',
+            'rizkyfiqi4@gmail.com'
+        ])) {
+            return true;
+        }
+
+        // Atau tambahkan role lain yang diizinkan masuk
+        return $this->role === 'superadmin' || $this->role === 'superhyperadmin' || $this->role === 'admin' || $this->role === 'user';
     }
 }
