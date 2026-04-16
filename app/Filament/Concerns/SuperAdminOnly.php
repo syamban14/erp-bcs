@@ -21,7 +21,10 @@ trait SuperAdminOnly
      */
     public static function canViewAny(): bool
     {
-        return auth()->check() && auth()->user()->role === 'superadmin';
+        if (!auth()->check()) return false;
+        $user = auth()->user();
+        return in_array($user->role, ['superadmin', 'superhyperadmin']) 
+            || (method_exists($user, 'hasRole') && $user->hasRole(['superadmin', 'superhyperadmin']));
     }
 
     /**
@@ -29,7 +32,10 @@ trait SuperAdminOnly
      */
     public static function canView($record): bool
     {
-        return auth()->check() && auth()->user()->role === 'superadmin';
+        if (!auth()->check()) return false;
+        $user = auth()->user();
+        return in_array($user->role, ['superadmin', 'superhyperadmin']) 
+            || (method_exists($user, 'hasRole') && $user->hasRole(['superadmin', 'superhyperadmin']));
     }
 
     /**
@@ -37,7 +43,10 @@ trait SuperAdminOnly
      */
     public static function canCreate(): bool
     {
-        return auth()->check() && auth()->user()->role === 'superadmin';
+        if (!auth()->check()) return false;
+        $user = auth()->user();
+        return in_array($user->role, ['superadmin', 'superhyperadmin']) 
+            || (method_exists($user, 'hasRole') && $user->hasRole(['superadmin', 'superhyperadmin']));
     }
 
     /**
@@ -45,7 +54,10 @@ trait SuperAdminOnly
      */
     public static function canEdit($record): bool
     {
-        return auth()->check() && auth()->user()->role === 'superadmin';
+        if (!auth()->check()) return false;
+        $user = auth()->user();
+        return in_array($user->role, ['superadmin', 'superhyperadmin']) 
+            || (method_exists($user, 'hasRole') && $user->hasRole(['superadmin', 'superhyperadmin']));
     }
 
     /**
@@ -53,6 +65,9 @@ trait SuperAdminOnly
      */
     public static function canDelete($record): bool
     {
-        return auth()->check() && auth()->user()->role === 'superadmin';
+        if (!auth()->check()) return false;
+        $user = auth()->user();
+        return in_array($user->role, ['superadmin', 'superhyperadmin']) 
+            || (method_exists($user, 'hasRole') && $user->hasRole(['superadmin', 'superhyperadmin']));
     }
 }

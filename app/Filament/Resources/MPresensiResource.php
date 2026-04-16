@@ -221,11 +221,11 @@ class MPresensiResource extends Resource
                     ->action(function ($record, array $data) {
                         $record->update(['role' => $data['role']]);
                         
-                        // Sync multiple roles ke database Spatie (via IDs)
+                        // Sync multiple roles ke database Spatie menggunakan fungsi bawaan agar CACHE langsung di-refresh!
                         if (isset($data['spatie_roles'])) {
-                            $record->roles()->sync($data['spatie_roles']);
+                            $record->syncRoles($data['spatie_roles']);
                         } else {
-                            $record->roles()->detach();
+                            $record->syncRoles([]);
                         }
 
                         \Filament\Notifications\Notification::make()
