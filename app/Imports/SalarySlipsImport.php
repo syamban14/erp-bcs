@@ -161,27 +161,30 @@ class SalarySlipsImport
             throw new \RuntimeException("Sheet pertama tidak ditemukan di dalam file XLSX.");
         }
 
+        // Strip semua namespace agar SimpleXML XPath bekerja tanpa prefix
+        $sheetXml = preg_replace('/(<\/?)[a-zA-Z]+:/', '$1', $sheetXml);
+        $sheetXml = preg_replace('/\s+xmlns[^=]*="[^"]*"/', '', $sheetXml);
+
         $sheet = simplexml_load_string($sheetXml);
-        $sheet->registerXPathNamespace('s', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
 
         $rows = [];
-        foreach ($sheet->xpath('//s:row') as $row) {
+        foreach ($sheet->xpath('//row') as $row) {
             $rowData = [];
-            foreach ($row->xpath('s:c') as $cell) {
-                $type = (string)($cell['t'] ?? '');
+            foreach ($row->xpath('c') as $cell) {
+                $type   = (string)($cell['t'] ?? '');
                 $rawVal = (string)($cell->v ?? '');
 
                 if ($type === 's') {
-                    // Shared string
                     $rowData[] = $sharedStrings[(int)$rawVal] ?? '';
                 } elseif ($type === 'b') {
                     $rowData[] = $rawVal === '1';
                 } else {
-                    // Numerik atau kosong
                     $rowData[] = $rawVal !== '' ? $rawVal : null;
                 }
             }
-            $rows[] = $rowData;
+            if (!empty($rowData)) {
+                $rows[] = $rowData;
+            }
         }
 
         return $rows;

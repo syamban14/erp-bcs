@@ -51,18 +51,23 @@ class ListShiftSchedules extends ListRecords
                     }, 'roster-export-' . now()->format('Y-m-d') . '.csv');
                 }),
             Actions\Action::make('import_roster')
-                ->label('Import Roster CSV')
+                ->label('Import Roster')
                 ->icon('heroicon-o-arrow-up-tray')
                 ->color('success')
                 ->form([
                     FileUpload::make('file')
-                        ->label('Upload CSV File')
-                        ->acceptedFileTypes(['text/csv', 'text/plain', 'application/vnd.ms-excel'])
+                        ->label('Upload File Roster (.xlsx atau .csv)')
+                        ->acceptedFileTypes([
+                            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                            'application/vnd.ms-excel',
+                            'text/csv',
+                            'text/plain',
+                        ])
                         ->disk('public')
                         ->directory('roster-imports')
                         ->storeFileNamesIn('original_filename')
                         ->required()
-                        ->helperText('Export Excel roster ke CSV dulu: File → Save As → CSV (Comma delimited)'),
+                        ->helperText('Upload file roster langsung (.xlsx) atau CSV jika sudah dikonversi.'),
                     Select::make('month')
                         ->label('Bulan')
                         ->options([
@@ -101,9 +106,9 @@ class ListShiftSchedules extends ListRecords
                             return;
                         }
 
-                        // Import using service
+                        // Import using service (auto-detect xlsx or csv)
                         $service = new RosterImportService();
-                        $results = $service->importFromCsv(
+                        $results = $service->importFromFile(
                             $filePath,
                             $data['month'],
                             $data['year']

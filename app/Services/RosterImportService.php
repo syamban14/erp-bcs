@@ -2,10 +2,12 @@
 
 namespace App\Services;
 
+use App\Models\MKaryawan;
 use App\Models\MPresensi;
 use App\Models\ShiftCode;
 use App\Models\ShiftSchedule;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class RosterImportService
 {
@@ -15,6 +17,44 @@ class RosterImportService
         'errors' => [],
         'warnings' => []
     ];
+
+    public function importFromFile($filePath, $month, $year)
+    {
+        $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+        if ($ext === 'xlsx' || $ext === 'xls') {
+            return $this->importFromXlsx($filePath, $month, $year);
+        }
+        return $this->importFromCsv($filePath, $month, $year);
+    }
+
+    public function importFromXlsx($filePath, $month, $year)
+    {
+        // Pure PHP XLSX reader (ZipArchive + SimpleXML)
+        $rows = $this->readXlsx($filePath);
+
+        if (empty($rows)) {
+            throw new \Exception('File XLSX kosong atau tidak dapat dibaca.');
+        }
+
+        // Skip baris 1 (title 'Upload Roster') dan baris 2 (periode)
+        array_shift($rows); // baris 1
+        array_shift($rows); // baris 2
+
+        $header = array_shift($rows); // baris 3 = header tanggal
+        if (!$header) {
+            throw new \Exception('Header tanggal tidak ditemukan di baris ke-3 file XLSX.');
+        }
+
+        $dates = $this->parseDateHeader($header, $month, $year);
+
+        $rowNumber = 3;
+        foreach ($rows as $row) {
+            $rowNumber++;
+            $this->processEmployeeRow($row, $dates, $rowNumber);
+        }
+
+        return $this->results;
+    }
 
     public function importFromCsv($filePath, $month, $year)
     {
@@ -122,14 +162,30 @@ class RosterImportService
             }
         }
 
-        // Find employee in m_presensi by name (and ID if valid)
-        $employee = MPresensi::where(function($query) use ($employeeName, $employeeId) {
-            $query->where('name', 'LIKE', "%{$employeeName}%");
-            // Hanya tambah kondisi ID jika valid
-            if ($employeeId && is_numeric($employeeId)) {
-                $query->orWhere('id', (int)$employeeId);
+        // === STRATEGI PENCOCOKAN BERLAPIS ===
+        $employee = null;
+        $normName = $this->normalizeName($employeeName);
+
+        // 1. Exact name match (case insensitive)
+        $employee = MPresensi::whereRaw('LOWER(TRIM(name)) = ?', [strtolower(trim($employeeName))])->first();
+
+        // 2. Normalized match (hapus spasi ganda, lowercase)
+        if (!$employee && $normName) {
+            $employee = MPresensi::whereRaw('LOWER(REGEXP_REPLACE(TRIM(name), \' +\', \' \', \'g\')) = ?', [$normName])->first();
+        }
+
+        // 3. Via Payroll ID (kol 0) → m_karyawan → m_presensi
+        if (!$employee && $employeeId && is_numeric($employeeId)) {
+            $karyawan = \App\Models\MKaryawan::where('payroll_id', $employeeId)->first();
+            if ($karyawan && $karyawan->presensiAccount) {
+                $employee = $karyawan->presensiAccount;
             }
-        })->first();
+        }
+
+        // 4. Fallback: LIKE %name% (fuzzy - least reliable)
+        if (!$employee) {
+            $employee = MPresensi::where('name', 'ILIKE', "%{$normName}%")->first();
+        }
 
         if (!$employee) {
             $this->results['errors'][] = "Baris {$rowNumber}: Karyawan tidak ditemukan - {$employeeName}";
@@ -180,5 +236,78 @@ class RosterImportService
     public function getResults()
     {
         return $this->results;
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // Helpers
+    // ─────────────────────────────────────────────────────────
+
+    private function normalizeName(string $name): string
+    {
+        // Lowercase, trim, hapus spasi ganda
+        return strtolower(preg_replace('/\s+/', ' ', trim($name)));
+    }
+
+    private function readXlsx(string $filePath): array
+    {
+        if (!file_exists($filePath)) {
+            throw new \RuntimeException("File tidak ditemukan: {$filePath}");
+        }
+
+        $zip = new \ZipArchive();
+        if ($zip->open($filePath) !== true) {
+            throw new \RuntimeException('Gagal membuka file XLSX. Pastikan file tidak rusak.');
+        }
+
+        // Shared strings
+        $sharedStrings = [];
+        $ssXml = $zip->getFromName('xl/sharedStrings.xml');
+        if ($ssXml !== false) {
+            $ssXml = preg_replace('/(<\/?)[a-zA-Z]+:/', '$1', $ssXml);
+            $ssXml = preg_replace('/\s+xmlns[^=]*="[^"]*"/', '', $ssXml);
+            $ss = simplexml_load_string($ssXml);
+            foreach ($ss->si as $si) {
+                $text = '';
+                foreach ($si->xpath('.//t') as $t) {
+                    $text .= (string)$t;
+                }
+                $sharedStrings[] = $text;
+            }
+        }
+
+        // Sheet 1
+        $sheetXml = $zip->getFromName('xl/worksheets/sheet1.xml');
+        $zip->close();
+
+        if ($sheetXml === false) {
+            throw new \RuntimeException('Sheet pertama tidak ditemukan di dalam XLSX.');
+        }
+
+        $sheetXml = preg_replace('/(<\/?)[a-zA-Z]+:/', '$1', $sheetXml);
+        $sheetXml = preg_replace('/\s+xmlns[^=]*="[^"]*"/', '', $sheetXml);
+
+        $sheet = simplexml_load_string($sheetXml);
+
+        $rows = [];
+        foreach ($sheet->xpath('//row') as $row) {
+            $rowData = [];
+            foreach ($row->xpath('c') as $cell) {
+                $type   = (string)($cell['t'] ?? '');
+                $rawVal = (string)($cell->v ?? '');
+
+                if ($type === 's') {
+                    $rowData[] = $sharedStrings[(int)$rawVal] ?? '';
+                } elseif ($type === 'b') {
+                    $rowData[] = $rawVal === '1';
+                } else {
+                    $rowData[] = $rawVal !== '' ? $rawVal : null;
+                }
+            }
+            if (!empty(array_filter($rowData, fn($v) => $v !== null && $v !== ''))) {
+                $rows[] = $rowData;
+            }
+        }
+
+        return $rows;
     }
 }
