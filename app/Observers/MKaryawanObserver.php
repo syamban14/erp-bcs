@@ -17,12 +17,19 @@ class MKaryawanObserver
      */
     public function updated(MKaryawan $karyawan): void
     {
-        // Hanya proses jika tgl_masuk berubah
-        if (! $karyawan->wasChanged('tgl_masuk')) {
-            return;
+        // 1. Sinkronisasi perubahan Nama ke akun Mobile (M_Presensi)
+        if ($karyawan->wasChanged('nama_karyawan')) {
+            $user = $karyawan->presensiAccount;
+            if ($user && $user->name !== $karyawan->nama_karyawan) {
+                $user->update(['name' => $karyawan->nama_karyawan]);
+                Log::info("MKaryawanObserver: Nama disinkronkan ke M_Presensi ID {$user->id} menjadi {$karyawan->nama_karyawan}");
+            }
         }
 
-        $this->syncLeaveQuota($karyawan);
+        // 2. Cek perhitungan Kuota Cuti (Hanya jika tgl_masuk berubah)
+        if ($karyawan->wasChanged('tgl_masuk')) {
+            $this->syncLeaveQuota($karyawan);
+        }
     }
 
     public function created(MKaryawan $karyawan): void
