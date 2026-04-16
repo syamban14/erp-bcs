@@ -85,7 +85,7 @@ class UserResource extends Resource
                     ->preload(),
                 Forms\Components\TextInput::make('password')
                     ->password()
-                    ->dehydrateStateUsing(function ($state, Forms\Get $get) {
+                    ->dehydrateStateUsing(function ($state, $get) {
                         // Jika ini adalah password hasil copy otomatis dari Mobile Account yang mana SUDAH terbentuk Hash, 
                         // kita JANGAN melakukan re-hash.
                         if ($get('is_copied_password')) {
