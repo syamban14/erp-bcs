@@ -189,6 +189,8 @@ class MPresensiResource extends Resource
                                 'hr'              => '📋 Paksa jadi HR / Personalia',
                                 'general_manager' => '🌟 Paksa jadi General Manager',
                                 'direktur'        => '⭐ Paksa jadi Direktur',
+                                'superadmin'      => '👑 Paksa jadi Superadmin',
+                                'superhyperadmin' => '💎 Paksa jadi Superhyperadmin',
                             ])
                             ->default(fn ($record) => $record->getRawOriginal('role') ?? 'user')
                             ->required()
