@@ -94,7 +94,7 @@ class UserResource extends Resource
             ])
             ->actions([
                 // Quick action jadikan superadmin
-                Tables\Actions\Action::make('makeSuperadmin')
+                \Filament\Actions\Action::make('makeSuperadmin')
                     ->label('Jadikan Superadmin')
                     ->icon('heroicon-o-shield-check')
                     ->color('success')
@@ -121,10 +121,12 @@ class UserResource extends Resource
                             ->send();
                     }),
 
-                Tables\Actions\EditAction::make(),
+                \Filament\Actions\EditAction::make(),
             ])
             ->bulkActions([
-                Tables\Actions\DeleteBulkAction::make(),
+                \Filament\Actions\BulkActionGroup::make([
+                    \Filament\Actions\DeleteBulkAction::make(),
+                ]),
             ]);
     }
 
