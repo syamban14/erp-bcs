@@ -95,6 +95,13 @@ class MPresensiResource extends Resource
                 Forms\Components\Hidden::make('role')
                     ->default('user'),
 
+                Forms\Components\Select::make('roles')
+                    ->label('Role Akses Panel (Bisa Multiple)')
+                    ->multiple()
+                    ->relationship('roles', 'name')
+                    ->preload()
+                    ->helperText('Pilih Spatie Role ekstra (misalnya: superadmin) tanpa mengganggu jabatan karyawan aslinya.'),
+
                 Forms\Components\Toggle::make('is_active')
                     ->default(true),
             ]);
@@ -137,8 +144,17 @@ class MPresensiResource extends Resource
                         'hr'              => '📋 HR',
                         'general_manager' => '🌟 GM',
                         'direktur'        => '⭐ Direktur',
+                        'superadmin'      => '👑 Superadmin',
+                        'superhyperadmin' => '💎 Superhyperadmin',
                         default           => '👤 User',
                     }),
+
+                // Spatie Roles (Multiple)
+                Tables\Columns\TextColumn::make('roles.name')
+                    ->label('Akses Ekstra')
+                    ->badge()
+                    ->color('primary')
+                    ->searchable(),
 
                 // Jumlah device terdaftar
                 Tables\Columns\TextColumn::make('devices_count')
@@ -189,19 +205,32 @@ class MPresensiResource extends Resource
                                 'hr'              => '📋 Paksa jadi HR / Personalia',
                                 'general_manager' => '🌟 Paksa jadi General Manager',
                                 'direktur'        => '⭐ Paksa jadi Direktur',
-                                'superadmin'      => '👑 Paksa jadi Superadmin',
-                                'superhyperadmin' => '💎 Paksa jadi Superhyperadmin',
                             ])
                             ->default(fn ($record) => $record->getRawOriginal('role') ?? 'user')
                             ->required()
-                            ->helperText('Pilih "Kalkulasi Dinamis" agar sistem membaca jabatan karyawan secara otomatis.'),
+                            ->helperText('Jabatan struktural. Pilih "Kalkulasi Dinamis" agar sistem membaca jabatan karyawan secara otomatis.'),
+
+                        Forms\Components\Select::make('spatie_roles')
+                            ->label('Role Akses Web Panel (Multiple)')
+                            ->multiple()
+                            ->options(\Spatie\Permission\Models\Role::query()->pluck('name', 'id'))
+                            ->default(fn ($record) => $record->roles->pluck('id')->toArray())
+                            ->preload()
+                            ->helperText('Berikan hak akses istimewa (misal: masukin "superadmin" di sini) agar dia memegang kendali penuh SEKALIPUN jabatan strukturalnya di atas cuma Supervisor/Manager/HR!'),
                     ])
                     ->action(function ($record, array $data) {
                         $record->update(['role' => $data['role']]);
+                        
+                        // Sync multiple roles ke database Spatie (via IDs)
+                        if (isset($data['spatie_roles'])) {
+                            $record->roles()->sync($data['spatie_roles']);
+                        } else {
+                            $record->roles()->detach();
+                        }
 
                         \Filament\Notifications\Notification::make()
-                            ->title('Role Berhasil Diubah')
-                            ->body('Role ' . ($record->karyawan?->nama_karyawan ?? $record->email) . ' diubah ke: ' . ucfirst($data['role']))
+                            ->title('Role & Akses Berhasil Disinkronkan')
+                            ->body('Hierarki: ' . ucfirst($data['role']) . ' | Ekstra Akses Web diperbarui.')
                             ->success()
                             ->send();
                     }),

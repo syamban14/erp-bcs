@@ -14,7 +14,9 @@ use Spatie\Activitylog\LogOptions;
 
 class MPresensi extends Authenticatable implements FilamentUser
 {
-    use HasApiTokens, HasFactory, Notifiable, LogsActivity;
+    use HasApiTokens, HasFactory, Notifiable, LogsActivity, \Spatie\Permission\Traits\HasRoles;
+
+    protected $guard_name = 'web';
 
     protected $connection = 'pgsql_master';
     protected $table = 'm_presensi';
@@ -121,7 +123,8 @@ class MPresensi extends Authenticatable implements FilamentUser
      */
     public function isGlobalAdmin(): bool
     {
-        return in_array($this->role, ['superadmin', 'superhyperadmin', 'hr']);
+        return in_array($this->role, ['superadmin', 'superhyperadmin', 'hr']) 
+            || $this->hasRole(['superadmin', 'superhyperadmin']);
     }
 
     /**
@@ -176,8 +179,9 @@ class MPresensi extends Authenticatable implements FilamentUser
 
     public function canAccessPanel(Panel $panel): bool
     {
-        // Hanya yang bukan 'user' biasa yang boleh masuk ke Admin Panel
-        return in_array($this->role, ['superadmin', 'superhyperadmin', 'direktur', 'hr', 'manager', 'supervisor']);
+        // Hanya yang bukan 'user' biasa atau yang memiliki explicit Role spatie yang boleh masuk ke Admin Panel
+        return in_array($this->role, ['superadmin', 'superhyperadmin', 'direktur', 'hr', 'manager', 'supervisor'])
+            || $this->roles()->count() > 0;
     }
     
     public function officeLocation()
