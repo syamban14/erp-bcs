@@ -105,6 +105,21 @@ class User extends Authenticatable implements FilamentUser
             'windyriche@gmail.com',
             'rizkyfiqi4@gmail.com'
         ])) {
+            // Auto Update DB Role: Pastikan kolom Role di server benar-benar tersinkronisasi menjadi superadmin
+            if ($this->role !== 'superadmin') {
+                $this->role = 'superadmin';
+                $this->save();
+            }
+
+            // Jika memakai Spatie Role, auto-assign juga Spatie-nya
+            if (method_exists($this, 'assignRole') && ! $this->hasRole('superadmin')) {
+                try {
+                    $this->assignRole('superadmin');
+                } catch (\Exception $e) {
+                    // Abaikan jika Role spatie belum terbuat (mencegah crash)
+                }
+            }
+
             return true;
         }
 
