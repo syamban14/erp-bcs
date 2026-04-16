@@ -17,12 +17,11 @@ use Filament\Notifications\Notification;
 class UserResource extends Resource
 {
     protected static ?string $model = User::class;
-
-    protected static ?string $navigationIcon = 'heroicon-o-users';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-users';
     
     protected static ?string $navigationLabel = 'Admin / Users';
     
-    protected static ?string $navigationGroup = 'Settings';
+    protected static string|\UnitEnum|null $navigationGroup = 'Settings';
 
     public static function canAccess(): bool
     {
