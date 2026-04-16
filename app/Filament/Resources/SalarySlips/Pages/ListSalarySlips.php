@@ -28,11 +28,11 @@ class ListSalarySlips extends ListRecords
                 ->action(function (array $data) {
                     try {
                         $path = storage_path('app/' . $data['file']);
-                        \Maatwebsite\Excel\Facades\Excel::import(new \App\Imports\SalarySlipsImport, $path);
+                        $count = (new \App\Imports\SalarySlipsImport)->import($path);
                         
                         \Filament\Notifications\Notification::make()
                             ->title('Import Slip Gaji Selesai!')
-                            ->body('Seluruh data berhasil ditangkap dan didistribusikan ke database.')
+                            ->body("{$count} data slip gaji berhasil diimpor dan didistribusikan ke seluruh karyawan.")
                             ->success()
                             ->send();
                     } catch (\Exception $e) {
