@@ -138,18 +138,20 @@ class SalarySlipsImport
             throw new \RuntimeException("Gagal membuka XLSX: {$reason} | Path: {$filePath}");
         }
 
-        // Baca shared strings (teks dalam excel disimpan di sini)
+        // Baca shared strings
         $sharedStrings = [];
         $ssXml = $zip->getFromName('xl/sharedStrings.xml');
         if ($ssXml !== false) {
-            $ss = simplexml_load_string($ssXml);
-            foreach ($ss->si as $si) {
-                // Gabungkan semua elemen <t> dalam satu <si>
-                $text = '';
-                foreach ($si->xpath('.//t') as $t) {
-                    $text .= (string)$t;
+            $ssXml = $this->stripXmlNamespaces($ssXml);
+            $ss = simplexml_load_string($ssXml, 'SimpleXMLElement', LIBXML_NOERROR | LIBXML_NOWARNING);
+            if ($ss) {
+                foreach ($ss->si as $si) {
+                    $text = '';
+                    foreach ($si->xpath('.//t') as $t) {
+                        $text .= (string)$t;
+                    }
+                    $sharedStrings[] = $text;
                 }
-                $sharedStrings[] = $text;
             }
         }
 
@@ -161,11 +163,9 @@ class SalarySlipsImport
             throw new \RuntimeException("Sheet pertama tidak ditemukan di dalam file XLSX.");
         }
 
-        // Strip semua namespace agar SimpleXML XPath bekerja tanpa prefix
-        $sheetXml = preg_replace('/(<\/?)[a-zA-Z]+:/', '$1', $sheetXml);
-        $sheetXml = preg_replace('/\s+xmlns[^=]*="[^"]*"/', '', $sheetXml);
-
-        $sheet = simplexml_load_string($sheetXml);
+        // Strip semua namespace secara agresif agar SimpleXML tidak error
+        $sheetXml = $this->stripXmlNamespaces($sheetXml);
+        $sheet = simplexml_load_string($sheetXml, 'SimpleXMLElement', LIBXML_NOERROR | LIBXML_NOWARNING);
 
         $rows = [];
         foreach ($sheet->xpath('//row') as $row) {
@@ -188,5 +188,23 @@ class SalarySlipsImport
         }
 
         return $rows;
+    }
+
+    /**
+     * Hapus semua namespace dari XML string secara agresif.
+     * Menangani: xmlns declarations, namespace-prefixed attributes (mc:Ignorable),
+     * processing instructions, dan prefix elemen (<x:row> → <row>).
+     */
+    private function stripXmlNamespaces(string $xml): string
+    {
+        // 1. Hapus processing instructions
+        $xml = preg_replace('/<\?[a-zA-Z].*?\?>/s', '', $xml);
+        // 2. Hapus atribut dengan namespace prefix (mc:Ignorable="...", r:id="...")
+        $xml = preg_replace('/\s[a-zA-Z][a-zA-Z0-9_]*:[a-zA-Z][a-zA-Z0-9_]*="[^"]*"/', '', $xml);
+        // 3. Hapus deklarasi namespace
+        $xml = preg_replace('/\s+xmlns(?::[a-zA-Z0-9_]+)?="[^"]*"/', '', $xml);
+        // 4. Hapus prefix dari nama elemen
+        $xml = preg_replace('/(<\/?)[a-zA-Z][a-zA-Z0-9_]*:/', '$1', $xml);
+        return $xml;
     }
 }
