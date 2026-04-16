@@ -121,9 +121,21 @@ class SalarySlipsImport
 
     private function readXlsx(string $filePath): array
     {
+        if (!file_exists($filePath)) {
+            throw new \RuntimeException("File tidak ditemukan: {$filePath}");
+        }
+        
         $zip = new \ZipArchive();
-        if ($zip->open($filePath) !== true) {
-            throw new \RuntimeException("Tidak dapat membuka file XLSX: {$filePath}");
+        $result = $zip->open($filePath);
+        if ($result !== true) {
+            $errorMap = [
+                \ZipArchive::ER_NOZIP  => 'Bukan file ZIP/XLSX yang valid',
+                \ZipArchive::ER_OPEN   => 'Tidak bisa membuka file (permission?)',
+                \ZipArchive::ER_NOENT  => 'File tidak ditemukan',
+                \ZipArchive::ER_INCONS => 'File ZIP rusak/corrupt',
+            ];
+            $reason = $errorMap[$result] ?? "ZipArchive error code: {$result}";
+            throw new \RuntimeException("Gagal membuka XLSX: {$reason} | Path: {$filePath}");
         }
 
         // Baca shared strings (teks dalam excel disimpan di sini)

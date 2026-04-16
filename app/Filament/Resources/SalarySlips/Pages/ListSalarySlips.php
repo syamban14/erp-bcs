@@ -27,7 +27,14 @@ class ListSalarySlips extends ListRecords
                 ])
                 ->action(function (array $data) {
                     try {
-                        $path = storage_path('app/' . $data['file']);
+                        // Ambil path absolut file dari disk 'local'
+                        $relativePath = is_array($data['file']) ? reset($data['file']) : $data['file'];
+                        $path = \Illuminate\Support\Facades\Storage::disk('local')->path($relativePath);
+                        
+                        if (!file_exists($path)) {
+                            throw new \RuntimeException("File tidak ditemukan di disk: {$path}");
+                        }
+                        
                         $count = (new \App\Imports\SalarySlipsImport)->import($path);
                         
                         \Filament\Notifications\Notification::make()
