@@ -291,15 +291,30 @@ class RosterImportService
         foreach ($sheet->xpath('//row') as $row) {
             $rowData = [];
             foreach ($row->xpath('c') as $cell) {
+                // Gunakan atribut 'r' untuk posisi kolom yang TEPAT
+                // Excel melewatkan sel kosong — sequential reading akan misalign!
+                $ref      = (string)($cell['r'] ?? '');
+                $colIndex = $ref ? $this->columnLetterToIndex($ref) : count($rowData);
+
+                while (count($rowData) < $colIndex) {
+                    $rowData[] = null;
+                }
+
                 $type   = (string)($cell['t'] ?? '');
                 $rawVal = (string)($cell->v ?? '');
 
                 if ($type === 's') {
-                    $rowData[] = $sharedStrings[(int)$rawVal] ?? '';
+                    $value = $sharedStrings[(int)$rawVal] ?? '';
                 } elseif ($type === 'b') {
-                    $rowData[] = $rawVal === '1';
+                    $value = $rawVal === '1';
                 } else {
-                    $rowData[] = $rawVal !== '' ? $rawVal : null;
+                    $value = $rawVal !== '' ? $rawVal : null;
+                }
+
+                if ($colIndex < count($rowData)) {
+                    $rowData[$colIndex] = $value;
+                } else {
+                    $rowData[] = $value;
                 }
             }
             if (!empty(array_filter($rowData, fn($v) => $v !== null && $v !== ''))) {
@@ -308,6 +323,20 @@ class RosterImportService
         }
 
         return $rows;
+    }
+
+    /**
+     * Konversi huruf kolom Excel (A, B, AA...) ke index 0-based.
+     */
+    private function columnLetterToIndex(string $cellRef): int
+    {
+        preg_match('/^([A-Za-z]+)/', $cellRef, $matches);
+        $col   = strtoupper($matches[1] ?? 'A');
+        $index = 0;
+        for ($i = 0; $i < strlen($col); $i++) {
+            $index = $index * 26 + (ord($col[$i]) - ord('A') + 1);
+        }
+        return $index - 1;
     }
 
     /**
