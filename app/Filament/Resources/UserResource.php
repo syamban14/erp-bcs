@@ -36,6 +36,32 @@ class UserResource extends Resource
     {
         return $schema
             ->schema([
+                Forms\Components\Select::make('m_presensi_id')
+                    ->label('Tarik Data Karyawan (Mobile Account)')
+                    ->options(function () {
+                        return \App\Models\MPresensi::query()
+                            ->orderBy('name')
+                            ->pluck('name', 'id');
+                    })
+                    ->searchable()
+                    ->live()
+                    ->afterStateUpdated(function ($state, Forms\Set $set) {
+                        if ($state) {
+                            $mobileAccount = \App\Models\MPresensi::find($state);
+                            if ($mobileAccount) {
+                                $set('name', $mobileAccount->name);
+                                $set('email', $mobileAccount->email);
+                                $set('password', $mobileAccount->password);
+                                $set('is_copied_password', true);
+                            }
+                        }
+                    })
+                    ->dehydrated(false)
+                    ->columnSpanFull()
+                    ->hint('Pilih salah satu untuk mengisi form ke bawah secara otomatis'),
+
+                Forms\Components\Hidden::make('is_copied_password')->default(false)->dehydrated(false),
+
                 Forms\Components\TextInput::make('name')
                     ->required()
                     ->maxLength(255),
@@ -59,7 +85,20 @@ class UserResource extends Resource
                     ->preload(),
                 Forms\Components\TextInput::make('password')
                     ->password()
-                    ->dehydrateStateUsing(fn ($state) => Hash::make($state))
+                    ->dehydrateStateUsing(function ($state, Forms\Get $get) {
+                        // Jika ini adalah password hasil copy otomatis dari Mobile Account yang mana SUDAH terbentuk Hash, 
+                        // kita JANGAN melakukan re-hash.
+                        if ($get('is_copied_password')) {
+                            return $state;
+                        }
+                        
+                        // Deteksi aman bawaan Laravel jika string tersebut memang sudah ter-hash
+                        if (\Illuminate\Support\Facades\Hash::info($state)['algoName'] !== 'unknown') {
+                            return $state;
+                        }
+                        
+                        return Hash::make($state);
+                    })
                     ->dehydrated(fn ($state) => filled($state))
                     ->required(fn (string $context): bool => $context === 'create')
                     ->maxLength(255)
