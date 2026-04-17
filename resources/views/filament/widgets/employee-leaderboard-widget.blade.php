@@ -1,47 +1,72 @@
 <x-filament-widgets::widget>
     <x-filament::section>
-        <div class="flex items-center justify-between gap-x-3 mb-4">
-            <h2 class="text-lg font-bold">Leaderboard Karyawan</h2>
-        </div>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <!-- Paling Rajin -->
+        <p style="font-size:1rem; font-weight:700; color:inherit; margin:0 0 2px;">Peringkat Karyawan</p>
+        <p style="font-size:0.75rem; color:#6b7280; margin:0 0 16px;">Top 5 berdasarkan kedisiplinan periode ini</p>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
+
+            {{-- KOLOM KIRI: Tepat Waktu --}}
             <div>
-                <h3 class="font-semibold text-gray-700 dark:text-gray-300 mb-2 whitespace-nowrap overflow-hidden text-ellipsis">🏆 Top 5 Rajin (Tepat Waktu)</h3>
-                <ul class="space-y-2">
-                    @foreach($this->getMostDiligentEmployees() as $employee)
-                    <li class="flex flex-col text-sm bg-gray-50 dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700">
-                        <div class="flex items-center justify-between mb-1">
-                            <span class="font-bold text-gray-900 dark:text-gray-100">{{ $employee->name }}</span>
-                            <span class="font-bold text-success-600 dark:text-success-400 bg-success-50 dark:bg-success-900/30 px-2 py-0.5 rounded text-xs">{{ $employee->on_time_count }} x Tepat</span>
-                        </div>
-                        <span class="text-xs text-gray-500 dark:text-gray-400">{{ $employee->dept }}</span>
-                    </li>
-                    @endforeach
-                    @if($this->getMostDiligentEmployees()->isEmpty())
-                    <li class="p-2 text-sm text-gray-500 text-center italic border border-dashed rounded dark:border-gray-700">Belum ada data presensi.</li>
-                    @endif
-                </ul>
+                <p style="font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:#10b981; margin:0 0 10px;">
+                    Top 5 Tepat Waktu
+                </p>
+                @php $rank = 1; @endphp
+                @forelse($this->getMostDiligentEmployees() as $employee)
+                <div style="display:flex; align-items:center; gap:10px; border:1px solid #374151; border-radius:8px; padding:10px 12px; margin-bottom:8px; background:rgba(255,255,255,0.02);">
+                    <span style="
+                        display:inline-flex; align-items:center; justify-content:center;
+                        min-width:28px; height:28px; border-radius:50%; font-size:0.7rem; font-weight:700;
+                        background:{{ $rank===1 ? '#fef3c7' : ($rank===2 ? '#f3f4f6' : ($rank===3 ? '#ffedd5' : '#f9fafb')) }};
+                        color:{{ $rank===1 ? '#b45309' : ($rank===2 ? '#6b7280' : ($rank===3 ? '#c2410c' : '#9ca3af')) }};
+                    ">{{ $rank }}</span>
+                    <div style="flex:1; min-width:0;">
+                        <p style="font-size:0.875rem; font-weight:600; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ $employee->name }}</p>
+                        <p style="font-size:0.7rem; color:#9ca3af; margin:2px 0 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ $employee->dept ?: '—' }}</p>
+                    </div>
+                    <div style="flex-shrink:0; text-align:right;">
+                        <span style="border-radius:9999px; padding:2px 10px; font-size:0.7rem; font-weight:700; background:#d1fae5; color:#065f46; white-space:nowrap;">
+                            {{ $employee->on_time_count }}x
+                        </span>
+                        <p style="font-size:0.65rem; color:#9ca3af; margin:2px 0 0;">tepat waktu</p>
+                    </div>
+                </div>
+                @php $rank++; @endphp
+                @empty
+                <p style="font-size:0.75rem; color:#9ca3af; text-align:center; padding:16px 0;">Belum ada data presensi tepat waktu.</p>
+                @endforelse
             </div>
-            
-            <!-- Tukang Telat -->
+
+            {{-- KOLOM KANAN: Sering Terlambat --}}
             <div>
-                <h3 class="font-semibold text-gray-700 dark:text-gray-300 mb-2 whitespace-nowrap overflow-hidden text-ellipsis">⏰ Top 5 Sering Terlambat</h3>
-                <ul class="space-y-2">
-                    @foreach($this->getMostLateEmployees() as $employee)
-                    <li class="flex flex-col text-sm bg-gray-50 dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700">
-                        <div class="flex items-center justify-between mb-1">
-                            <span class="font-bold text-gray-900 dark:text-gray-100">{{ $employee->name }}</span>
-                            <span class="font-bold text-danger-600 dark:text-danger-400 bg-danger-50 dark:bg-danger-900/30 px-2 py-0.5 rounded text-xs">{{ $employee->total_late_minutes }} Menit</span>
-                        </div>
-                        <span class="text-xs text-gray-500 dark:text-gray-400">{{ $employee->dept }}</span>
-                    </li>
-                    @endforeach
-                    @if($this->getMostLateEmployees()->isEmpty())
-                    <li class="p-2 text-sm text-gray-500 text-center italic border border-dashed rounded dark:border-gray-700">Belum ada data keterlambatan. Hebat!</li>
-                    @endif
-                </ul>
+                <p style="font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:#ef4444; margin:0 0 10px;">
+                    Top 5 Sering Terlambat
+                </p>
+                @php $rank = 1; @endphp
+                @forelse($this->getMostLateEmployees() as $employee)
+                @php
+                    $hours = intdiv($employee->total_late_minutes, 60);
+                    $mins  = $employee->total_late_minutes % 60;
+                    $label = $hours > 0 ? "{$hours}j {$mins}m" : "{$mins} mnt";
+                @endphp
+                <div style="display:flex; align-items:center; gap:10px; border:1px solid #374151; border-radius:8px; padding:10px 12px; margin-bottom:8px; background:rgba(255,255,255,0.02);">
+                    <span style="display:inline-flex; align-items:center; justify-content:center; min-width:28px; height:28px; border-radius:50%; font-size:0.7rem; font-weight:700; background:#fef2f2; color:#ef4444;">{{ $rank }}</span>
+                    <div style="flex:1; min-width:0;">
+                        <p style="font-size:0.875rem; font-weight:600; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ $employee->name }}</p>
+                        <p style="font-size:0.7rem; color:#9ca3af; margin:2px 0 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ $employee->dept ?: '—' }}</p>
+                    </div>
+                    <div style="flex-shrink:0; text-align:right;">
+                        <span style="border-radius:9999px; padding:2px 10px; font-size:0.7rem; font-weight:700; background:#fee2e2; color:#991b1b; white-space:nowrap;">
+                            {{ $label }}
+                        </span>
+                        <p style="font-size:0.65rem; color:#9ca3af; margin:2px 0 0;">total telat</p>
+                    </div>
+                </div>
+                @php $rank++; @endphp
+                @empty
+                <p style="font-size:0.75rem; color:#10b981; text-align:center; padding:16px 0;">Tidak ada keterlambatan. Luar biasa!</p>
+                @endforelse
             </div>
+
         </div>
     </x-filament::section>
 </x-filament-widgets::widget>

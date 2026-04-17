@@ -84,23 +84,32 @@ class StatsOverviewWidget extends BaseWidget
             
         $lateChart = array_map(fn($date) => (int)($lateStats[$date] ?? 0), $chartRange);
         
-        // Kehadiran Periode Ini - use `date` column (type: date)
-        $presentToday = $applyScope(Presence::query())
+        $today = \Carbon\Carbon::today();
+        
+        // Kehadiran Hari Ini (distinct user_id yg clock-in hari ini) — untuk attendance rate
+        $presentTodayCount = $applyScope(Presence::query())
+            ->whereDate('date', $today->format('Y-m-d'))
+            ->distinct('user_id')
+            ->count('user_id');
+
+        // Kehadiran Periode Filter (untuk ditampilkan pada stat card tersebut)
+        $presentInPeriod = $applyScope(Presence::query())
             ->whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
             ->distinct('user_id')
             ->count('user_id');
             
+        // Attendance Rate selalu dihitung berdasarkan kehadiran HARI INI
         $attendanceRate = $activeEmployees > 0 
-            ? round(($presentToday / $activeEmployees) * 100, 1) 
+            ? round(($presentTodayCount / $activeEmployees) * 100, 1) 
             : 0;
         
-        // Pending Approvals
-        $pendingLeaves = collect($applyScope(Leave::where('status', 'pending'))->pluck('id'))->count();
-        $pendingPermissions = collect($applyScope(PermissionRequest::where('status', 'pending'))->pluck('id'))->count();
-        $pendingCorrections = collect($applyScope(AttendanceCorrection::where('status', 'pending'))->pluck('id'))->count();
+        // Pending Approvals — semua status pending, bukan filter periode
+        $pendingLeaves = $applyScope(Leave::where('status', 'pending'))->count();
+        $pendingPermissions = $applyScope(PermissionRequest::where('status', 'pending'))->count();
+        $pendingCorrections = $applyScope(AttendanceCorrection::where('status', 'pending'))->count();
         $totalPending = $pendingLeaves + $pendingPermissions + $pendingCorrections;
         
-        // Cuti Sakit Hari Ini / Periode Ini
+        // Cuti Sakit periode aktif
         $sickLeaveToday = $applyScope(Leave::query())
             ->where('type', 'sick')
             ->where('status', 'approved')
@@ -121,17 +130,16 @@ class StatsOverviewWidget extends BaseWidget
         } catch (\Exception $e) {}
         
         // Tugas Luar Chart
-        $outstationChart = array_fill(0, 7, 0); // Placeholder until schema verified
+        $outstationChart = array_fill(0, 7, 0);
         
-        // Belum Hadir (Karyawan aktif yang belum clock-in periode ini)
-        $notPresentYet = max(0, $activeEmployees - $presentToday);
-        
-        // Belum Hadir Chart (Inverse of presence chart relative to active employees)
+        // BELUM HADIR — HARI INI (real-time: aktif tapi belum clock-in hari ini)
+        $notPresentYet = max(0, $activeEmployees - $presentTodayCount);
         $notPresentChart = array_map(fn($p) => max(0, $activeEmployees - $p), $presenceChart);
         
-        // Belum Pulang (Sudah clock-in tapi belum clock-out dalam periode)
+        // BELUM PULANG — HARI INI (sudah clock-in hari ini tapi belum clock-out)
         $notClockedOut = $applyScope(Presence::query())
-            ->whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
+            ->whereDate('date', $today->format('Y-m-d'))
+            ->whereNotNull('clock_in')
             ->whereNull('clock_out')
             ->distinct('user_id')
             ->count('user_id');
@@ -167,7 +175,7 @@ class StatsOverviewWidget extends BaseWidget
                 ->color('success')
                 ->chart($empChart),
             
-            Stat::make("Kehadiran {$filterLabel}", number_format($presentToday))
+            Stat::make("Hadir {$filterLabel}", number_format($presentInPeriod))
                 ->description(new \Illuminate\Support\HtmlString(
                     '<span style="display:flex; align-items:center; gap:0.25rem;">' . 
                     $attendanceRate . '% dari total karyawan ' .
@@ -190,24 +198,25 @@ class StatsOverviewWidget extends BaseWidget
                 ->color('primary')
                 ->chart($outstationChart),
             
-            Stat::make('Belum Hadir', number_format($notPresentYet))
-                ->description('Belum clock-in (' . $filterLabel . ')')
+            Stat::make('Belum Hadir (Hari Ini)', number_format($notPresentYet))
+                ->description('Karyawan aktif belum clock-in hari ini')
                 ->descriptionIcon('heroicon-m-exclamation-triangle')
                 ->color($notPresentYet > 10 ? 'warning' : 'gray')
                 ->chart($notPresentChart),
             
             Stat::make("Terlambat ({$filterLabel})", number_format(
-                    Presence::whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
+                    $applyScope(Presence::query())
+                        ->whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
                         ->where('late_minutes', '>', 0)
                         ->count()
                 ))
-                ->description('Karyawan terlambat')
+                ->description('Keterlambatan dalam periode')
                 ->descriptionIcon('heroicon-m-clock')
                 ->color('danger')
                 ->chart($lateChart),
             
-            Stat::make('Belum Pulang', number_format($notClockedOut))
-                ->description('Sudah clock-in, belum clock-out')
+            Stat::make('Belum Pulang (Hari Ini)', number_format($notClockedOut))
+                ->description('Sudah clock-in hari ini, belum clock-out')
                 ->descriptionIcon('heroicon-m-arrow-right-on-rectangle')
                 ->color('info'),
             

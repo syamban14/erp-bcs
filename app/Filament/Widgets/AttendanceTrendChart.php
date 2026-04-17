@@ -22,53 +22,67 @@ class AttendanceTrendChart extends ChartWidget
         $dates = $this->getFilterDates();
         $startDate = $dates['start'];
         $endDate = $dates['end'];
-        
-        $data = collect();
-        
-        // Loop through each day in the range
-        // Note: For long ranges, this might be heavy. 
-        // Ideally we would group by date in SQL, but for simplicity and consistency with previous logic:
-        $current = $startDate->copy();
-        
+
         $user = auth()->user();
         $isGlobalAdmin = $user ? $user->isGlobalAdmin() : false;
         $subordinateIds = $isGlobalAdmin ? [] : ($user ? $user->getSubordinateUserIds() : []);
         $scopeIds = empty($subordinateIds) ? [-1] : $subordinateIds;
 
-        while ($current <= $endDate) {
-            $query = Presence::query()
-                ->whereBetween('clock_in', [
-                    $current->copy()->startOfDay(),
-                    $current->copy()->endOfDay()
-                ])
-                ->distinct('user_id');
-                
-            if (!$isGlobalAdmin) {
-                $query->whereIn('user_id', $scopeIds);
-            }
-                
-            $count = $query->count('user_id');
-            
-            $data->push([
-                'date' => $current->format('d M'),
-                'count' => $count,
-            ]);
-            
+        // BUGFIX: dulu pakai 'clock_in' (tipe TIME) — salah!
+        // Sekarang pakai 'date' (tipe DATE) dan satu query GROUP BY
+        $hadir = Presence::query()
+            ->selectRaw("date::text as pdate, COUNT(DISTINCT user_id) as total")
+            ->whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
+            ->groupBy('pdate')
+            ->when(!$isGlobalAdmin, fn($q) => $q->whereIn('user_id', $scopeIds))
+            ->pluck('total', 'pdate');
+
+        $terlambat = Presence::query()
+            ->selectRaw("date::text as pdate, COUNT(DISTINCT user_id) as total")
+            ->whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
+            ->where('late_minutes', '>', 0)
+            ->groupBy('pdate')
+            ->when(!$isGlobalAdmin, fn($q) => $q->whereIn('user_id', $scopeIds))
+            ->pluck('total', 'pdate');
+
+        $labels  = [];
+        $hadir_d = [];
+        $late_d  = [];
+        $current = $startDate->copy();
+
+        while ($current->lte($endDate)) {
+            $key       = $current->format('Y-m-d');
+            $labels[]  = $current->format('d M');
+            $hadir_d[] = (int)($hadir[$key] ?? 0);
+            $late_d[]  = (int)($terlambat[$key] ?? 0);
             $current->addDay();
         }
-        
+
         return [
             'datasets' => [
                 [
-                    'label' => 'Jumlah Kehadiran',
-                    'data' => $data->pluck('count')->toArray(),
-                    'borderColor' => '#10b981',
-                    'backgroundColor' => 'rgba(16, 185, 129, 0.1)',
-                    'fill' => true,
-                    'tension' => 0.4,
+                    'label'                => 'Hadir',
+                    'data'                 => $hadir_d,
+                    'borderColor'          => '#10b981',
+                    'backgroundColor'      => 'rgba(16, 185, 129, 0.08)',
+                    'fill'                 => true,
+                    'tension'              => 0.4,
+                    'pointBackgroundColor' => '#10b981',
+                    'pointRadius'          => 3,
+                ],
+                [
+                    'label'                => 'Terlambat',
+                    'data'                 => $late_d,
+                    'borderColor'          => '#f59e0b',
+                    'backgroundColor'      => 'rgba(245, 158, 11, 0.0)',
+                    'fill'                 => false,
+                    'tension'              => 0.4,
+                    'pointBackgroundColor' => '#f59e0b',
+                    'pointRadius'          => 3,
+                    'borderDash'           => [4, 4],
                 ],
             ],
-            'labels' => $data->pluck('date')->toArray(),
+            'labels' => $labels,
         ];
     }
 

@@ -66,9 +66,9 @@ class LeaderboardWidget extends Widget
             $lateCount = DB::connection('pgsql')
                 ->table('presences')
                 ->whereIn('user_id', $employeeIds)
-                ->whereBetween('created_at', [
-                    $startDate->startOfDay(),
-                    $endDate->endOfDay()
+                ->whereBetween('date', [
+                    $startDate->format('Y-m-d'),
+                    $endDate->format('Y-m-d')
                 ])
                 ->where('late_minutes', '>', 0)
                 ->count();
@@ -130,9 +130,9 @@ class LeaderboardWidget extends Widget
             $presenceCount = DB::connection('pgsql')
                 ->table('presences')
                 ->whereIn('user_id', $employeeIds)
-                ->whereBetween('created_at', [
-                    $startDate->startOfDay(),
-                    $endDate->endOfDay()
+                ->whereBetween('date', [
+                    $startDate->format('Y-m-d'),
+                    $endDate->format('Y-m-d')
                 ])
                 ->count();
             

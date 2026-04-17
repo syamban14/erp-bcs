@@ -41,9 +41,9 @@ class EmployeeLeaderboardWidget extends Widget
         $query = DB::connection('pgsql')
             ->table('presences')
             ->select('user_id', DB::raw('count(*) as on_time_count'))
-            ->whereBetween('created_at', [
-                $startDate->startOfDay(),
-                $endDate->endOfDay()
+            ->whereBetween('date', [
+                $startDate->format('Y-m-d'),
+                $endDate->format('Y-m-d')
             ])
             ->where('late_minutes', '=', 0)
             ->whereNotNull('clock_in')
@@ -112,9 +112,9 @@ class EmployeeLeaderboardWidget extends Widget
         $query = DB::connection('pgsql')
             ->table('presences')
             ->select('user_id', DB::raw('sum(late_minutes) as total_late_minutes'))
-            ->whereBetween('created_at', [
-                $startDate->startOfDay(),
-                $endDate->endOfDay()
+            ->whereBetween('date', [
+                $startDate->format('Y-m-d'),
+                $endDate->format('Y-m-d')
             ])
             ->where('late_minutes', '>', 0)
             ->groupBy('user_id')
