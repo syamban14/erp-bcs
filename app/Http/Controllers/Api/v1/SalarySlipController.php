@@ -111,35 +111,67 @@ class SalarySlipController extends Controller
             ];
         }
 
-        // Karena sistem kini menggunakan sistem upload PDF penuh, komponen nominal usang tidak lagi dilampirkan agar Mobile App tidak menampilkan angka 0.
+        // Hitung total earnings dari field-field di database
+        $totalEarnings = $slip->basic_salary
+            + $slip->professional_allowance
+            + $slip->performance_allowance
+            + $slip->position_allowance
+            + $slip->meal_allowance
+            + $slip->transport_allowance
+            + $slip->relocation_allowance
+            + $slip->skill_allowance
+            + ($slip->other_allowance ?? 0)
+            + ($slip->incentive_10th ?? 0)
+            + ($slip->communication_allowance ?? 0)
+            + ($slip->incentive ?? 0)
+            + ($slip->shift_allowance ?? 0)
+            + ($slip->overtime_allowance ?? 0)
+            + ($slip->khk_allowance ?? 0);
+
         return response()->json([
             'status' => 'success',
             'data' => [
-                'id' => $slip->id,
+                'id'           => $slip->id,
                 'download_url' => $slip->pdf_url,
                 'employee_info' => [
-                    'nik' => $slip->employee_nik,
-                    'name' => $slip->employee_name,
-                    'position' => $slip->employee_position,
-                    'division' => $slip->employee_division,
-                    'bank_name' => $slip->bank_name,
+                    'nik'            => $slip->employee_nik,
+                    'name'           => $slip->employee_name,
+                    'position'       => $slip->employee_position,
+                    'division'       => $slip->employee_division,
+                    'bank_name'      => $slip->bank_name,
                     'account_number' => $slip->account_number,
                 ],
                 'period_info' => [
                     'period_string' => $slip->period->format('n - Y'),
-                    'work_days' => 0,
+                    'work_days'     => 0,
                 ],
                 'earnings' => [
-                    'fixed_allowances' => [],
-                    'variable_allowances' => [],
+                    'fixed_allowances' => [
+                        ['label' => 'Gaji Pokok',              'amount' => $slip->basic_salary],
+                        ['label' => 'Tunj. Profesi/Kontribusi','amount' => $slip->professional_allowance],
+                        ['label' => 'Tunj. Prestasi',          'amount' => $slip->performance_allowance],
+                        ['label' => 'Tunj. Jabatan',           'amount' => $slip->position_allowance],
+                    ],
+                    'variable_allowances' => [
+                        ['label' => 'Uang Makan',              'amount' => $slip->meal_allowance],
+                        ['label' => 'Transport',               'amount' => $slip->transport_allowance],
+                        ['label' => 'Tunj. Relokasi',          'amount' => $slip->relocation_allowance],
+                        ['label' => 'Tunj. Skill',             'amount' => $slip->skill_allowance],
+                        ['label' => 'Tunj. Lain-lain',         'amount' => $slip->other_allowance ?? 0],
+                        ['label' => 'Insentif',                'amount' => $slip->incentive ?? 0],
+                        ['label' => 'Tunj. Komunikasi',        'amount' => $slip->communication_allowance ?? 0],
+                        ['label' => 'Lembur',                  'amount' => $slip->overtime_allowance ?? 0, 'meta' => $slip->overtime_hours ? "{$slip->overtime_hours} jam" : null],
+                        ['label' => 'KHK',                     'amount' => $slip->khk_allowance ?? 0, 'meta' => $slip->khk_count ? "{$slip->khk_count} hari" : null],
+                    ],
+                    'total' => $totalEarnings,
                 ],
-                'deductions' => [],
+                'deductions' => $deductions,
                 'summary' => [
-                    'gross_salary' => 0,
-                    'total_deductions' => 0,
-                    'net_salary' => 0,
-                    'salary_in_words' => '-',
-                    'notes' => $slip->notes ?: 'Terkirim bersama lampiran dokumen PDF.',
+                    'gross_salary'     => $slip->gross_salary ?: $totalEarnings,
+                    'total_deductions' => $slip->total_deductions,
+                    'net_salary'       => $slip->net_salary,
+                    'salary_in_words'  => $this->terbilang((int)$slip->net_salary),
+                    'notes'            => $slip->notes ?: 'Dikirim bersama lampiran dokumen PDF.',
                 ],
             ]
         ]);
@@ -197,5 +229,31 @@ class SalarySlipController extends Controller
         $filename = 'Slip_Gaji_' . $slip->period->format('F_Y') . '.pdf';
         
         return response()->download($filePath, $filename);
+    }
+
+    /**
+     * Konversi angka rupiah ke terbilang (Bahasa Indonesia).
+     */
+    private function terbilang(int $angka): string
+    {
+        if ($angka <= 0) return 'Nol Rupiah';
+        
+        $kata = ['', 'Satu', 'Dua', 'Tiga', 'Empat', 'Lima',
+                 'Enam', 'Tujuh', 'Delapan', 'Sembilan', 'Sepuluh',
+                 'Sebelas'];
+        
+        $fn = function (int $n) use (&$fn, $kata): string {
+            if ($n < 12)   return $kata[$n];
+            if ($n < 20)   return $kata[$n - 10] . ' Belas';
+            if ($n < 100)  return $kata[(int)($n / 10)] . ' Puluh ' . $fn($n % 10);
+            if ($n < 200)  return 'Seratus ' . $fn($n - 100);
+            if ($n < 1000) return $kata[(int)($n / 100)] . ' Ratus ' . $fn($n % 100);
+            if ($n < 2000) return 'Seribu ' . $fn($n - 1000);
+            if ($n < 1000000)    return $fn((int)($n / 1000)) . ' Ribu ' . $fn($n % 1000);
+            if ($n < 1000000000) return $fn((int)($n / 1000000)) . ' Juta ' . $fn($n % 1000000);
+            return $fn((int)($n / 1000000000)) . ' Miliar ' . $fn($n % 1000000000);
+        };
+
+        return trim($fn($angka)) . ' Rupiah';
     }
 }

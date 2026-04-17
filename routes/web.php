@@ -7,17 +7,13 @@ Route::get('/', function () {
     return redirect('/admin');
 });
 
-Route::get('/read-excel', function () {
-    $filePath = base_path('Epayslip.xlsx');
-    if (!file_exists($filePath)) return response()->json(['error' => 'No file']);
-    
-    $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($filePath);
-    $reader->setReadDataOnly(true);
-    $spreadsheet = $reader->load($filePath);
-    $worksheet = $spreadsheet->getActiveSheet();
-    $rows = array_slice($worksheet->toArray(), 0, 8);
-    
-    return response()->json($rows);
+Route::get('/debug-payslip', function () {
+    $slips = \App\Models\SalarySlip::orderBy('created_at', 'desc')->take(5)->get([
+        'id', 'user_id', 'employee_nik', 'employee_name', 'period',
+        'basic_salary', 'net_salary', 'gross_salary', 'total_deductions',
+        'meal_allowance', 'transport_allowance', 'zakat', 'tax', 'created_at'
+    ]);
+    return response()->json($slips, 200, [], JSON_PRETTY_PRINT);
 });
 
 // Approval Center - Simple UI for approve/reject
