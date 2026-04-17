@@ -186,10 +186,7 @@ class SalarySlipController extends Controller
     {
         $user = $request->user();
 
-        // Ambil slip + pastikan milik user yang login
-        $slip = SalarySlip::with(['deductions' => function ($q) {
-            $q->with('loan');
-        }])->where('id', $id)->first();
+        $slip = SalarySlip::with(['deductions'])->where('id', $id)->first();
 
         if (!$slip) {
             return response()->json([
@@ -201,7 +198,7 @@ class SalarySlipController extends Controller
         // Keamanan: karyawan hanya boleh download miliknya sendiri
         $payrollId = $user->karyawan?->payroll_id;
         $isOwner = $slip->user_id == $user->id || ($payrollId && $slip->employee_nik == $payrollId);
-        
+
         if (!$isOwner) {
             return response()->json([
                 'meta' => ['code' => 403, 'status' => 'error', 'message' => 'Anda tidak memiliki akses ke dokumen ini.'],
@@ -209,26 +206,47 @@ class SalarySlipController extends Controller
             ], 403);
         }
 
-        // Jika tidak ada file spesifik hasil upload dari HR, batalkan
-        if (!$slip->pdf_path) {
-            return response()->json([
-                'meta' => ['code' => 404, 'status' => 'error', 'message' => 'File slip gaji belum diunggah.'],
-                'data' => null,
-            ], 404);
+        // Jika ada file PDF manual yang di-upload, serve langsung
+        if ($slip->pdf_path) {
+            $filePath = storage_path('app/public/' . $slip->pdf_path);
+            if (file_exists($filePath)) {
+                return response()->download($filePath, 'Slip_Gaji_' . $slip->period->format('F_Y') . '.pdf');
+            }
         }
 
-        $filePath = storage_path('app/public/' . $slip->pdf_path);
-        
-        if (!file_exists($filePath)) {
-            return response()->json([
-                'meta' => ['code' => 404, 'status' => 'error', 'message' => 'File tidak ditemukan di server.'],
-                'data' => null,
-            ], 404);
-        }
+        // Generate PDF dari data database menggunakan DomPDF
+        $totalEarnings = $slip->basic_salary
+            + $slip->professional_allowance
+            + $slip->performance_allowance
+            + $slip->position_allowance
+            + $slip->meal_allowance
+            + $slip->transport_allowance
+            + $slip->relocation_allowance
+            + $slip->skill_allowance
+            + ($slip->other_allowance ?? 0)
+            + ($slip->incentive_10th ?? 0)
+            + ($slip->communication_allowance ?? 0)
+            + ($slip->incentive ?? 0)
+            + ($slip->shift_allowance ?? 0)
+            + ($slip->overtime_allowance ?? 0)
+            + ($slip->khk_allowance ?? 0);
 
-        $filename = 'Slip_Gaji_' . $slip->period->format('F_Y') . '.pdf';
-        
-        return response()->download($filePath, $filename);
+        // Cek logo perusahaan
+        $logoPath = public_path('images/logo.png');
+        $logo = file_exists($logoPath)
+            ? 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath))
+            : null;
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.salary_slip', [
+            'slip'          => $slip,
+            'totalEarnings' => $totalEarnings,
+            'terbilang'     => $this->terbilang((int)$slip->net_salary),
+            'logo'          => $logo,
+        ])->setPaper('a4', 'portrait');
+
+        $filename = 'Slip_Gaji_' . $slip->employee_nik . '_' . $slip->period->format('M_Y') . '.pdf';
+
+        return $pdf->download($filename);
     }
 
     /**
