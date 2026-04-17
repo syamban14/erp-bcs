@@ -7,13 +7,74 @@ Route::get('/', function () {
     return redirect('/admin');
 });
 
-Route::get('/debug-payslip', function () {
-    $slips = \App\Models\SalarySlip::orderBy('created_at', 'desc')->take(5)->get([
-        'id', 'user_id', 'employee_nik', 'employee_name', 'period',
-        'basic_salary', 'net_salary', 'gross_salary', 'total_deductions',
-        'meal_allowance', 'transport_allowance', 'zakat', 'tax', 'created_at'
-    ]);
-    return response()->json($slips, 200, [], JSON_PRETTY_PRINT);
+Route::get('/debug-rekap', function () {
+    // Cari file rekap absensi
+    $candidates = glob(base_path('*rekap*')) + glob(base_path('*Rekap*')) + glob(base_path('*REKAP*'));
+    if (empty($candidates)) {
+        return response()->json(['error' => 'File rekap tidak ditemukan', 'cwd' => base_path()]);
+    }
+    $filePath = reset($candidates);
+
+    // Baca XLSX dengan Pure PHP
+    $zip = new ZipArchive();
+    if ($zip->open($filePath) !== true) {
+        return response()->json(['error' => 'Gagal membuka file: ' . $filePath]);
+    }
+
+    // Shared strings
+    $sharedStrings = [];
+    $ssXml = $zip->getFromName('xl/sharedStrings.xml');
+    if ($ssXml) {
+        $ssXml = preg_replace('/<\?[a-zA-Z].*?\?>/s', '', $ssXml);
+        $ssXml = preg_replace('/\s[a-zA-Z][a-zA-Z0-9_]*:[a-zA-Z][a-zA-Z0-9_]*="[^"]*"/', '', $ssXml);
+        $ssXml = preg_replace('/\s+xmlns(?::[a-zA-Z0-9_]+)?="[^"]*"/', '', $ssXml);
+        $ssXml = preg_replace('/(<\/?)[a-zA-Z][a-zA-Z0-9_]*:/', '$1', $ssXml);
+        $ss = simplexml_load_string($ssXml, 'SimpleXMLElement', LIBXML_NOERROR);
+        foreach ($ss->si as $si) {
+            $t = '';
+            foreach ($si->xpath('.//t') as $node) $t .= (string)$node;
+            $sharedStrings[] = $t;
+        }
+    }
+
+    // Sheet 1 - ambil 15 baris pertama
+    $sheetXml = $zip->getFromName('xl/worksheets/sheet1.xml');
+    $zip->close();
+
+    $sheetXml = preg_replace('/<\?[a-zA-Z].*?\?>/s', '', $sheetXml);
+    $sheetXml = preg_replace('/\s[a-zA-Z][a-zA-Z0-9_]*:[a-zA-Z][a-zA-Z0-9_]*="[^"]*"/', '', $sheetXml);
+    $sheetXml = preg_replace('/\s+xmlns(?::[a-zA-Z0-9_]+)?="[^"]*"/', '', $sheetXml);
+    $sheetXml = preg_replace('/(<\/?)[a-zA-Z][a-zA-Z0-9_]*:/', '$1', $sheetXml);
+    $sheet = simplexml_load_string($sheetXml, 'SimpleXMLElement', LIBXML_NOERROR);
+
+    $fn = function($ref) {
+        preg_match('/^([A-Za-z]+)/', $ref, $m);
+        $col = strtoupper($m[1] ?? 'A');
+        $idx = 0;
+        for ($i = 0; $i < strlen($col); $i++) $idx = $idx * 26 + (ord($col[$i]) - 64);
+        return $idx - 1;
+    };
+
+    $rows = [];
+    $rowNum = 0;
+    foreach ($sheet->xpath('//row') as $row) {
+        if ($rowNum++ >= 10) break;
+        $r = [];
+        foreach ($row->xpath('c') as $c) {
+            $ci = $fn((string)($c['r'] ?? ''));
+            while (count($r) < $ci) $r[] = null;
+            $type = (string)($c['t'] ?? '');
+            $v = (string)($c->v ?? '');
+            $r[] = $type === 's' ? ($sharedStrings[(int)$v] ?? '') : ($v !== '' ? $v : null);
+        }
+        $rows[] = $r;
+    }
+
+    return response()->json([
+        'file' => basename($filePath),
+        'total_shared_strings' => count($sharedStrings),
+        'rows_preview' => $rows,
+    ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 });
 
 // Approval Center - Simple UI for approve/reject
@@ -51,7 +112,7 @@ Route::get('/admin/monthly-recap/export', function (\Illuminate\Http\Request $re
         $endDate   = \Carbon\Carbon::create($year, $month, 15);
         $startDate = $endDate->copy()->subMonth()->addDay();
 
-        $query = \App\Models\MPresensi::query()->with('officeLocation')->orderBy('name');
+        $query = \App\Models\MPresensi::query()->with(['officeLocation', 'karyawan.department'])->orderBy('name');
         if ($unitId) {
             $query->where('office_location_id', $unitId);
         }
@@ -168,41 +229,50 @@ Route::get('/admin/monthly-recap/export', function (\Illuminate\Http\Request $re
 </Styles>' . "\r\n";
 
         // ── Worksheet ─────────────────────────────────────────────────────
-        echo '<Worksheet ss:Name="Rekap Presensi">' . "\r\n";
-        echo '<Table ss:DefaultColumnWidth="70">' . "\r\n";
+        echo '<Worksheet ss:Name="Sheet1">' . "\r\n";
+        echo '<Table>' . "\r\n";
 
-        // Column widths
-        $colWidths = [30, 160, 120, 60, 60, 70, 70, 70, 60, 60, 70, 60, 70, 70, 80];
-        foreach ($colWidths as $w) {
-            echo "<Column ss:Width=\"{$w}\"/>\r\n";
-        }
+        // Kolom
+        echo "<Column ss:Index=\"1\" ss:Width=\"20\"/>\r\n"; // Col A (Blank)
+        echo "<Column ss:Index=\"2\" ss:Width=\"80\"/>\r\n"; // ID Karyawan
+        echo "<Column ss:Index=\"3\" ss:Width=\"180\"/>\r\n"; // Nama
+        echo "<Column ss:Index=\"4\" ss:Width=\"120\"/>\r\n"; // Departemen
+        
+        $periodRange = $startDate->format('d/m/Y') . ' - ' . $endDate->format('d/m/Y');
 
-        // Judul
-        echo "<Row ss:Height=\"20\">"
-            . "<Cell ss:MergeAcross=\"14\" ss:StyleID=\"Title\"><Data ss:Type=\"String\">REKAP PRESENSI KARYAWAN</Data></Cell>"
-            . "</Row>\r\n";
+        // Judul & Info (Baris 1-11)
+        echo "<Row><Cell ss:Index=\"3\" ss:StyleID=\"Title\"><Data ss:Type=\"String\">PT BUANA CENTRA SWAKARSA LOGISTICS</Data></Cell></Row>\r\n";
+        echo "<Row><Cell ss:Index=\"2\"><Data ss:Type=\"String\">Tanggal absensi</Data></Cell><Cell><Data ss:Type=\"String\">{$x($periodRange)}</Data></Cell></Row>\r\n";
+        echo "<Row><Cell ss:Index=\"2\"><Data ss:Type=\"String\">Lokasi kerja</Data></Cell><Cell><Data ss:Type=\"String\">Semua</Data></Cell></Row>\r\n";
+        echo "<Row><Cell ss:Index=\"2\"><Data ss:Type=\"String\">Status kepegawaian</Data></Cell><Cell><Data ss:Type=\"String\">Semua</Data></Cell></Row>\r\n";
+        echo "<Row><Cell ss:Index=\"2\"><Data ss:Type=\"String\">Departemen</Data></Cell><Cell><Data ss:Type=\"String\">Semua</Data></Cell></Row>\r\n";
+        echo "<Row><Cell ss:Index=\"2\"><Data ss:Type=\"String\">Jabatan</Data></Cell><Cell><Data ss:Type=\"String\">Semua</Data></Cell></Row>\r\n";
+        echo "<Row><Cell ss:Index=\"2\"><Data ss:Type=\"String\">Level jabatan</Data></Cell><Cell><Data ss:Type=\"String\">Semua</Data></Cell></Row>\r\n";
+        echo "<Row><Cell ss:Index=\"2\"><Data ss:Type=\"String\">COST OF SALES</Data></Cell><Cell><Data ss:Type=\"String\">Semua</Data></Cell></Row>\r\n";
+        echo "<Row><Cell ss:Index=\"2\"><Data ss:Type=\"String\">DIVISION</Data></Cell><Cell><Data ss:Type=\"String\">Semua</Data></Cell></Row>\r\n";
+        echo "<Row><Cell ss:Index=\"2\"><Data ss:Type=\"String\">DIRECTORATE</Data></Cell><Cell><Data ss:Type=\"String\">Semua</Data></Cell></Row>\r\n";
+        echo "<Row><Cell ss:Index=\"2\"><Data ss:Type=\"String\">GRADE</Data></Cell><Cell><Data ss:Type=\"String\">Semua</Data></Cell></Row>\r\n";
 
-        echo "<Row>"
-            . "<Cell ss:MergeAcross=\"14\" ss:StyleID=\"Subtitle\"><Data ss:Type=\"String\">Periode: {$x($period)}</Data></Cell>"
-            . "</Row>\r\n";
-
-        echo "<Row>"
-            . "<Cell ss:MergeAcross=\"14\" ss:StyleID=\"Subtitle\"><Data ss:Type=\"String\">Dicetak: {$x($printed)}</Data></Cell>"
-            . "</Row>\r\n";
-
-        // Baris kosong
-        echo "<Row ss:Height=\"6\"><Cell ss:MergeAcross=\"14\"><Data ss:Type=\"String\"></Data></Cell></Row>\r\n";
-
-        // Header kolom
-        $headers = ['No','Nama Karyawan','Unit Kerja','Hari Kerja','Hadir','Durasi (Jam)','Cuti Tahunan','Cuti Spesial','Sakit','Izin (Jam)','Tugas Luar','Alpa','Lembur (Jam)','Telat (Jam)','Pulang Awal (Jam)'];
-        echo "<Row ss:Height=\"32\">";
+        // Header kolom (Baris 12)
+        $headers = [
+            "ID karyawan", "Nama karyawan", "Nama departemen", "Jumlah hari kerja (jadwal)",
+            "Frekuensi hadir sesuai jadwal", "Jam kehadiran", "Frekuensi hadir di luar jadwal",
+            "Alpa (hari)", "Alpa tanpa sanksi (hari)", "Tugas masuk di hari libur (hari)",
+            "Jam lembur tugas masuk di hari libur", "Jam realisasi lembur tugas masuk di hari libur",
+            "Jam lembur SPL", "Jam realisasi lembur", "Jam realisasi lembur (hasil pembulatan)",
+            "Nama COST OF SALES", "Pelatihan", "Perjalanan dinas", "Frekuensi pelatihan",
+            "Frekuensi perjalanan dinas", "Jam pelatihan", "Jam perjalanan dinas",
+            "Jam lembur pelatihan", "Jam lembur perjalanan dinas", " "
+        ];
+        echo "<Row ss:Height=\"32\">\r\n";
+        $colIdx = 2;
         foreach ($headers as $h) {
-            echo "<Cell ss:StyleID=\"Header\"><Data ss:Type=\"String\">{$x($h)}</Data></Cell>";
+            echo "<Cell ss:Index=\"{$colIdx}\" ss:StyleID=\"Header\"><Data ss:Type=\"String\">{$x($h)}</Data></Cell>";
+            $colIdx++;
         }
         echo "</Row>\r\n";
 
         // Data rows
-        $no = 1;
         foreach ($employees as $emp) {
             try {
                 $d = $service->getRecapData($emp, $startDate, $endDate);
@@ -211,27 +281,42 @@ Route::get('/admin/monthly-recap/export', function (\Illuminate\Http\Request $re
                 $d = array_fill_keys(['total_hari_kerja','total_kehadiran','durasi_kehadiran','cuti_tahunan','cuti_special','cuti_sakit','izin_jam','tugas_luar','alpa','lembur_jam','terlambat_jam','pulang_awal_jam'], 0);
             }
 
-            $alpaStyle  = $d['alpa'] > 0 ? 'NumDanger' : 'NumZero';
-            $hadirStyle = $d['total_kehadiran'] >= $d['total_hari_kerja'] ? 'NumVal' : 'NumWarn';
+            // Hitung properti gabungan
+            $alpaTanpaSanksi = $d['cuti_tahunan'] + $d['cuti_special'] + $d['cuti_sakit'];
+            $lemburSPL       = $d['lembur_jam'];
+            
+            // Aturan penamaan: jika department null, pakai jabatan atau '-'. COST OF SALES bisa pakai officeLocation.
+            $deptName        = optional(optional($emp->karyawan)->department)->dept_name ?? '-';
+            $costOfSales     = $emp->officeLocation->name ?? '-';
+            $payrollId       = optional($emp->karyawan)->payroll_id ?? $emp->nik ?? '-';
 
-            echo "<Row ss:Height=\"18\">";
-            echo $cell($no,                                'Number', 'DataCenter');
-            echo $cell($emp->name,                         'String', 'DataLeft');
-            echo $cell($emp->officeLocation->name ?? '-',  'String', 'DataLeft');
-            echo $numCell($d['total_hari_kerja'],  'DataCenter');
-            echo $numCell($d['total_kehadiran'],   $hadirStyle);
-            echo $numCell($d['durasi_kehadiran'],  'DataCenter');
-            echo $numCell($d['cuti_tahunan'],  $d['cuti_tahunan']  > 0 ? 'NumVal'    : 'NumZero');
-            echo $numCell($d['cuti_special'],  $d['cuti_special']  > 0 ? 'NumVal'    : 'NumZero');
-            echo $numCell($d['cuti_sakit'],    $d['cuti_sakit']    > 0 ? 'NumWarn'   : 'NumZero');
-            echo $numCell($d['izin_jam'],      $d['izin_jam']      > 0 ? 'NumWarn'   : 'NumZero');
-            echo $numCell($d['tugas_luar'],    'DataCenter');
-            echo $numCell($d['alpa'],          $alpaStyle);
-            echo $numCell($d['lembur_jam'],    $d['lembur_jam']    > 0 ? 'NumVal'    : 'NumZero');
-            echo $numCell($d['terlambat_jam'], $d['terlambat_jam'] > 0 ? 'NumWarn'   : 'NumZero');
-            echo $numCell($d['pulang_awal_jam'], $d['pulang_awal_jam'] > 0 ? 'NumWarn' : 'NumZero');
+            echo "<Row ss:Height=\"18\">\r\n";
+            echo "<Cell ss:Index=\"2\"  ss:StyleID=\"DataLeft\"><Data ss:Type=\"String\">{$x($payrollId)}</Data></Cell>";
+            echo "<Cell ss:Index=\"3\"  ss:StyleID=\"DataLeft\"><Data ss:Type=\"String\">{$x(strtoupper($emp->name))}</Data></Cell>";
+            echo "<Cell ss:Index=\"4\"  ss:StyleID=\"DataLeft\"><Data ss:Type=\"String\">{$x($deptName)}</Data></Cell>";
+            echo "<Cell ss:Index=\"5\"  ss:StyleID=\"DataCenter\"><Data ss:Type=\"Number\">{$x($d['total_hari_kerja'])}</Data></Cell>";
+            echo "<Cell ss:Index=\"6\"  ss:StyleID=\"DataCenter\"><Data ss:Type=\"Number\">{$x($d['total_kehadiran'])}</Data></Cell>";
+            echo "<Cell ss:Index=\"7\"  ss:StyleID=\"DataCenter\"><Data ss:Type=\"Number\">{$x($d['durasi_kehadiran'])}</Data></Cell>";
+            echo "<Cell ss:Index=\"8\"  ss:StyleID=\"DataCenter\"><Data ss:Type=\"Number\">0</Data></Cell>";
+            echo "<Cell ss:Index=\"9\"  ss:StyleID=\"DataCenter\"><Data ss:Type=\"Number\">{$x($d['alpa'])}</Data></Cell>";
+            echo "<Cell ss:Index=\"10\" ss:StyleID=\"DataCenter\"><Data ss:Type=\"Number\">{$x($alpaTanpaSanksi)}</Data></Cell>";
+            echo "<Cell ss:Index=\"11\" ss:StyleID=\"DataCenter\"><Data ss:Type=\"Number\">0</Data></Cell>";
+            echo "<Cell ss:Index=\"12\" ss:StyleID=\"DataCenter\"><Data ss:Type=\"Number\">0</Data></Cell>";
+            echo "<Cell ss:Index=\"13\" ss:StyleID=\"DataCenter\"><Data ss:Type=\"Number\">0</Data></Cell>";
+            echo "<Cell ss:Index=\"14\" ss:StyleID=\"DataCenter\"><Data ss:Type=\"Number\">{$x($lemburSPL)}</Data></Cell>";
+            echo "<Cell ss:Index=\"15\" ss:StyleID=\"DataCenter\"><Data ss:Type=\"Number\">{$x($lemburSPL)}</Data></Cell>";
+            echo "<Cell ss:Index=\"16\" ss:StyleID=\"DataCenter\"><Data ss:Type=\"Number\">{$x(round($lemburSPL))}</Data></Cell>";
+            echo "<Cell ss:Index=\"17\" ss:StyleID=\"DataLeft\"><Data ss:Type=\"String\">{$x($costOfSales)}</Data></Cell>";
+            echo "<Cell ss:Index=\"18\" ss:StyleID=\"DataCenter\"><Data ss:Type=\"Number\">0</Data></Cell>";
+            echo "<Cell ss:Index=\"19\" ss:StyleID=\"DataCenter\"><Data ss:Type=\"Number\">0</Data></Cell>";
+            echo "<Cell ss:Index=\"20\" ss:StyleID=\"DataCenter\"><Data ss:Type=\"Number\">0.0</Data></Cell>";
+            echo "<Cell ss:Index=\"21\" ss:StyleID=\"DataCenter\"><Data ss:Type=\"Number\">{$x($d['tugas_luar'])}</Data></Cell>";
+            echo "<Cell ss:Index=\"22\" ss:StyleID=\"DataCenter\"><Data ss:Type=\"Number\">0.0</Data></Cell>";
+            echo "<Cell ss:Index=\"23\" ss:StyleID=\"DataCenter\"><Data ss:Type=\"Number\">{$x($d['tugas_luar'] * 8)}</Data></Cell>";
+            echo "<Cell ss:Index=\"24\" ss:StyleID=\"DataCenter\"><Data ss:Type=\"Number\">0.0</Data></Cell>";
+            echo "<Cell ss:Index=\"25\" ss:StyleID=\"DataCenter\"><Data ss:Type=\"Number\">0.0</Data></Cell>";
+            echo "<Cell ss:Index=\"26\" ss:StyleID=\"DataCenter\"><Data ss:Type=\"String\"> </Data></Cell>";
             echo "</Row>\r\n";
-            $no++;
         }
 
         echo "</Table>\r\n</Worksheet>\r\n</Workbook>";
