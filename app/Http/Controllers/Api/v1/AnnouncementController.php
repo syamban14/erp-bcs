@@ -38,10 +38,10 @@ class AnnouncementController extends Controller
                     'type' => $item->type,
                     'date' => $item->date->format('Y-m-d H:i:s'),
                     'image_url' => $item->image_url ? url('/api/v1/public/files/' . $item->image_url) : null,
-                    'target_user_id' => $item->target_user_id,
+                    'target_user_id' => $item->target_user_id ? (int) $item->target_user_id : ($item->type === 'birthday' ? -1 : null),
                     'sender_name' => $item->author_name ?? 'HR & GA / Manajemen',
                     'sender_division' => $item->author_division ?? 'Pusat Manajemen',
-                    'greetings_count' => Greeting::where('announcement_id', $item->id)->count(),
+                    'greetings_count' => 0,
                 ];
             })->toArray();
 
@@ -59,6 +59,11 @@ class AnnouncementController extends Controller
 
         $birthdays = collect();
         foreach ($birthdayEmployees as $karyawan) {
+            // Hanya sertakan karyawan yang memiliki akun presensi
+            if (!$karyawan->presensiAccount) {
+                continue;
+            }
+
             $announcementId = 'BDAY-' . $karyawan->id;
             
             // Cek apakah sudah dibaca user
@@ -67,16 +72,18 @@ class AnnouncementController extends Controller
                         ->exists();
 
             if (!$isRead) {
-                $targetUserId = $karyawan->presensiAccount ? (string) $karyawan->presensiAccount->id : null;
+                $targetUserId = (int) $karyawan->presensiAccount->id;
                 $birthdays->push([
                     'id' => $announcementId,
-                    'title' => 'Happy Birthday!',
-                    'content' => 'Selamat ulang tahun ' . $karyawan->nama_karyawan . '!',
+                    'title' => 'Selamat Ulang Tahun! 🎉',
+                    'content' => 'Selamat ulang tahun ' . $karyawan->nama_karyawan . '! Semoga hari istimewa ini membawa kebahagiaan dan kesuksesan.',
                     'type' => 'birthday',
                     'date' => now()->startOfDay()->format('Y-m-d H:i:s'),
                     'image_url' => $karyawan->foto ? "https://hris.xyz.co.id/presensi/assets/img/karyawan/{$karyawan->foto}" : null,
                     'target_user_id' => $targetUserId,
-                    'greetings_count' => Greeting::where('announcement_id', $announcementId)->count(),
+                    'sender_name' => 'Admin HR',
+                    'sender_division' => 'HR & GA / Manajemen',
+                    'greetings_count' => 0,
                 ]);
             }
         }
