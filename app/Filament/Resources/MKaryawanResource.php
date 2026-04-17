@@ -102,6 +102,12 @@ class MKaryawanResource extends Resource
                             
                         Forms\Components\TextInput::make('point_of_hire')
                             ->label('Point of Hire'),
+                            
+                        Forms\Components\Select::make('cost_sales_id')
+                            ->label('Cost of Sales')
+                            ->options(\App\Models\MCostSales::query()->pluck('cost_sales', 'cost_sales_code'))
+                            ->searchable()
+                            ->preload(),
                     ])->columns(2),
 
                 \Filament\Schemas\Components\Section::make('Hirarki / Struktur Organisasi')
@@ -257,12 +263,8 @@ class MKaryawanResource extends Resource
                         if (!$state) return '-';
                         $cs = $record->costSalesInfo;
                         if (!$cs) return $state;
-                        // Coba kolom nama yang mungkin ada di tabel m_cost_sales
-                        return $cs->cost_sales_name
-                            ?? $cs->cost_sales_desc
-                            ?? $cs->description
-                            ?? $cs->name
-                            ?? $state;
+                        // Ambil deskripsi dari kolom cost_sales
+                        return $cs->cost_sales ?? $state;
                     })
                     ->badge()
                     ->color('info')

@@ -7,6 +7,12 @@ Route::get('/', function () {
     return redirect('/admin');
 });
 
+Route::get('/debug-cost-sales', function () {
+    $item = \App\Models\MCostSales::first();
+    $cols = \Illuminate\Support\Facades\Schema::connection('pgsql_master')->getColumnListing('m_cost_sales');
+    return ['columns' => $cols, 'sample' => $item];
+});
+
 Route::get('/debug-rekap', function () {
     // Cari file rekap absensi
     $candidates = glob(base_path('*rekap*')) + glob(base_path('*Rekap*')) + glob(base_path('*REKAP*'));
@@ -112,7 +118,7 @@ Route::get('/admin/monthly-recap/export', function (\Illuminate\Http\Request $re
         $endDate   = \Carbon\Carbon::create($year, $month, 15);
         $startDate = $endDate->copy()->subMonth()->addDay();
 
-        $query = \App\Models\MPresensi::query()->with(['officeLocation', 'karyawan.department'])->orderBy('name');
+        $query = \App\Models\MPresensi::query()->with(['officeLocation', 'karyawan.department', 'karyawan.costSalesInfo'])->orderBy('name');
         if ($unitId) {
             $query->where('office_location_id', $unitId);
         }
@@ -285,9 +291,9 @@ Route::get('/admin/monthly-recap/export', function (\Illuminate\Http\Request $re
             $alpaTanpaSanksi = $d['cuti_tahunan'] + $d['cuti_special'] + $d['cuti_sakit'];
             $lemburSPL       = $d['lembur_jam'];
             
-            // Aturan penamaan: jika department null, pakai jabatan atau '-'. COST OF SALES bisa pakai officeLocation.
+            // Aturan penamaan: jika department null, pakai jabatan atau '-'. COST OF SALES sekarang dari m_cost_sales.
             $deptName        = optional(optional($emp->karyawan)->department)->dept_name ?? '-';
-            $costOfSales     = $emp->officeLocation->name ?? '-';
+            $costOfSales     = optional(optional($emp->karyawan)->costSalesInfo)->cost_sales ?? $emp->officeLocation->name ?? '-';
             $payrollId       = optional($emp->karyawan)->payroll_id ?? $emp->nik ?? '-';
 
             echo "<Row ss:Height=\"18\">\r\n";
