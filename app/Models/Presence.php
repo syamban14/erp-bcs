@@ -27,6 +27,7 @@ class Presence extends Model
         'late_minutes',
         'overtime_minutes',
         'working_hours',
+        'is_auto_clockout',
     ];
 
     protected $casts = [
