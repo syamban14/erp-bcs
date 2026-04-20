@@ -55,17 +55,25 @@ class ManageSabbaticalLeaves extends Command
                     continue;
                 }
 
-                // Cek if anniversary is today
-                if ($joinDate->month === $now->month && $joinDate->day === $now->day) {
-                    $yearsOfService = $joinDate->diffInYears($now);
+                // Kalkulasi usia kerja dalam hitungan tahun (pecahan ke bawah)
+                $yearsOfService = $joinDate->diffInYears($now);
+                
+                // Syarat: Minimal sudah 5 tahun bergabung
+                if ($yearsOfService >= 5) {
+                    // Cari "Milestone Kelipatan 5" terakhir yang dicapai user (misal: usia 6 tahun -> milestone 5)
+                    $milestone = floor($yearsOfService / 5) * 5; 
                     
-                    // Kelipatan 5 tahun (5, 10, 15, dst)
-                    if ($yearsOfService > 0 && $yearsOfService % 5 === 0) {
-                        
-                        // User MPresensi yang terhubung dengan MKaryawan ini
+                    // Tanggal persis karyawan mencapai milestone tersebut
+                    $milestoneDate = $joinDate->copy()->addYears($milestone);
+                    
+                    // Masa berlaku dari milestone tersebut adalah 5 tahun ke depan (pukul 23:59:59)
+                    $expiryDate = $milestoneDate->copy()->addYears(5)->endOfDay();
+
+                    // Jika masa berlakunya masih aktif (artinya kedaluwarsa belum lewat hari ini)
+                    if ($expiryDate->isFuture()) {
+                    
                         $user = \App\Models\MPresensi::where('karyawan_id', $employee->id)->first();
                         
-                        // Failover: cek juga relasi terbalik jika karyawan_id null tapi presensiAccount ada (tergantung sync)
                         if (!$user) {
                             $user = \App\Models\MPresensi::whereHas('karyawan', function($q) use ($employee) {
                                 $q->where('id', $employee->id);
@@ -73,23 +81,31 @@ class ManageSabbaticalLeaves extends Command
                         }
                         
                         if ($user) {
-                            DB::transaction(function () use ($user, $now, $yearsOfService) {
-                                // 1. Kadaluarsakan sisa cuti besar yang lama dengan mengubah expires_at ke kemarin
-                                SabbaticalLeave::where('user_id', $user->id)
-                                    ->where('expires_at', '>=', $now->copy()->startOfDay())
-                                    ->update(['expires_at' => $now->copy()->subDay()]);
-                                
-                                // 2. Insert saldo cuti besar baru (10 hari, masa berlaku 5 tahun ke depan)
-                                SabbaticalLeave::create([
-                                    'user_id' => $user->id,
-                                    'quota' => 10,
-                                    'used' => 0,
-                                    'expires_at' => $now->copy()->addYears(5)->endOfDay(),
-                                ]);
-                            });
+                            // Cek apakah untuk MILSTONE ini user TERSEBUT sudah pernah dibuatkan cuti besar?
+                            // Kita cukup cek apakah dia punya row dengan expires_at == $expiryDate
+                            $hasBeenAwarded = SabbaticalLeave::where('user_id', $user->id)
+                                ->whereDate('expires_at', $expiryDate->format('Y-m-d'))
+                                ->exists();
 
-                            $countAwarded++;
-                            Log::info("[SabbaticalLeave] Cuti besar 10 hari telah diberikan kepada {$user->name} untuk ulang tahun kerja ke-{$yearsOfService}");
+                            if (!$hasBeenAwarded) {
+                                DB::transaction(function () use ($user, $expiryDate) {
+                                    // 1. Kadaluarsakan semua sisa cuti besar yang rentangnya lebih lama/sebelumnya (prevent duplicate active)
+                                    SabbaticalLeave::where('user_id', $user->id)
+                                        ->where('expires_at', '>=', Carbon::now()->startOfDay())
+                                        ->update(['expires_at' => Carbon::now()->subDay()]);
+                                    
+                                    // 2. Insert saldo cuti besar baru (10 hari)
+                                    SabbaticalLeave::create([
+                                        'user_id' => $user->id,
+                                        'quota' => 10,
+                                        'used' => 0,
+                                        'expires_at' => $expiryDate,
+                                    ]);
+                                });
+
+                                $countAwarded++;
+                                Log::info("[SabbaticalLeave] Backfill/Award: Cuti besar 10 hari telah diberikan kepada {$user->name} untuk milestone ke-{$milestone} tahun (berlaku s.d {$expiryDate->format('Y-m-d')})");
+                            }
                         }
                     }
                 }

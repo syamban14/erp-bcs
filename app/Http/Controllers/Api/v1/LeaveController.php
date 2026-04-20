@@ -46,11 +46,50 @@ class LeaveController extends Controller
 
         // --- VALIDASI: Cuti Besar ---
         // Jika request tipe cuti besar, pastikan sisa saldonya masih cukup
-        if (strtolower(trim($request->type)) === 'cuti besar') {
+        $rawType = trim($request->type);
+        if (strtolower($rawType) === 'cuti besar') {
             $daysReq = \Carbon\Carbon::parse($request->start_date)->diffInDays(\Carbon\Carbon::parse($request->end_date)) + 1;
             if (!$user->hasSabbaticalQuota($daysReq)) {
                 return response()->json([
                     'meta' => ['code' => 422, 'status' => 'error', 'message' => 'Saldo Cuti Besar Anda tidak mencukupi atau telah kadaluarsa'],
+                    'data' => null,
+                ], 422);
+            }
+        }
+
+        $reqYear = \Carbon\Carbon::parse($request->start_date)->year;
+        $reqMonth = \Carbon\Carbon::parse($request->start_date)->month;
+
+        // --- VALIDASI: Aturan Tahunan (Maks 1 kali setahun) ---
+        $yearlyLimitedTypes = ['Cuti Haji', 'Cuti Pekerja Melahirkan'];
+        if (in_array($rawType, $yearlyLimitedTypes, true)) {
+            $hasTakenYearly = Leave::where('user_id', $user->id)
+                ->where('type', $rawType)
+                ->where('status', '!=', 'rejected')
+                ->whereYear('start_date', $reqYear)
+                ->exists();
+                
+            if ($hasTakenYearly) {
+                return response()->json([
+                    'meta' => ['code' => 422, 'status' => 'error', 'message' => "{$rawType} hanya dapat diajukan 1 kali dalam satu tahun."],
+                    'data' => null,
+                ], 422);
+            }
+        }
+
+        // --- VALIDASI: Aturan Bulanan (Maks 1 kali sebulan) ---
+        $monthlyLimitedTypes = ['Haid atau Datang Bulan Jika Disertai Rasa Sakit'];
+        if (in_array($rawType, $monthlyLimitedTypes, true)) {
+            $hasTakenMonthly = Leave::where('user_id', $user->id)
+                ->where('type', $rawType)
+                ->where('status', '!=', 'rejected')
+                ->whereYear('start_date', $reqYear)
+                ->whereMonth('start_date', $reqMonth)
+                ->exists();
+                
+            if ($hasTakenMonthly) {
+                return response()->json([
+                    'meta' => ['code' => 422, 'status' => 'error', 'message' => "Cuti Haid hanya dapat diajukan 1 kali dalam satu bulan."],
                     'data' => null,
                 ], 422);
             }
