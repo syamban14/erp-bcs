@@ -231,6 +231,17 @@ class MPresensi extends Authenticatable implements FilamentUser
     }
     
     /**
+     * Relasi ke Cuti Besar (Sabbatical Leave) yang masih aktif (berlaku)
+     */
+    public function activeSabbaticalLeave()
+    {
+        return $this->hasOne(\App\Models\SabbaticalLeave::class, 'user_id')
+            ->where('expires_at', '>=', \Carbon\Carbon::now()->startOfDay())
+            ->orderBy('created_at', 'desc');
+    }
+
+    
+    /**
      * Get remaining leave quota for specific year (delegate to LeaveBalance)
      */
     public function getRemainingLeaveQuota(int $year = null): int
@@ -268,6 +279,50 @@ class MPresensi extends Authenticatable implements FilamentUser
         $year = $year ?? date('Y');
         $balance = \App\Models\LeaveBalance::getOrCreateForUser($this, $year);
         $balance->restoreQuota($days);
+    }
+    
+    // ==========================================
+    // Helper untuk Cuti Besar (Sabbatical Leave)
+    // ==========================================
+
+    /**
+     * Get remaining sabbatical leave quota
+     */
+    public function getRemainingSabbaticalQuota(): int
+    {
+        $balance = $this->activeSabbaticalLeave;
+        return $balance ? $balance->getRemainingQuota() : 0;
+    }
+    
+    /**
+     * Check if user has sufficient sabbatical leave quota
+     */
+    public function hasSabbaticalQuota(int $days): bool
+    {
+        $balance = $this->activeSabbaticalLeave;
+        return $balance ? $balance->hasQuota($days) : false;
+    }
+    
+    /**
+     * Deduct sabbatical leave quota
+     */
+    public function deductSabbaticalQuota(int $days): void
+    {
+        $balance = $this->activeSabbaticalLeave;
+        if ($balance) {
+            $balance->deductQuota($days);
+        }
+    }
+    
+    /**
+     * Restore sabbatical leave quota (jika cuti dibatalkan)
+     */
+    public function restoreSabbaticalQuota(int $days): void
+    {
+        $balance = $this->activeSabbaticalLeave;
+        if ($balance) {
+            $balance->decrement('used', $days);
+        }
     }
 
     public function getActivitylogOptions(): LogOptions

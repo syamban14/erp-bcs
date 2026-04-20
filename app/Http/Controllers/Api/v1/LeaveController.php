@@ -44,6 +44,18 @@ class LeaveController extends Controller
             ], 422);
         }
 
+        // --- VALIDASI: Cuti Besar ---
+        // Jika request tipe cuti besar, pastikan sisa saldonya masih cukup
+        if (strtolower(trim($request->type)) === 'cuti besar') {
+            $daysReq = \Carbon\Carbon::parse($request->start_date)->diffInDays(\Carbon\Carbon::parse($request->end_date)) + 1;
+            if (!$user->hasSabbaticalQuota($daysReq)) {
+                return response()->json([
+                    'meta' => ['code' => 422, 'status' => 'error', 'message' => 'Saldo Cuti Besar Anda tidak mencukupi atau telah kadaluarsa'],
+                    'data' => null,
+                ], 422);
+            }
+        }
+
         $attachmentPath = null;
         if ($request->hasFile('attachment')) {
             $attachmentPath = $request->file('attachment')->store('leaves', 'public');

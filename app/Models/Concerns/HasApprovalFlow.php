@@ -120,11 +120,18 @@ trait HasApprovalFlow
         ]);
 
         // Tambahkan pemotongan kuota khusus untuk Cuti Tahunan setelah disetujui penuh
-        if ($this instanceof \App\Models\Leave && $this->isLeaveType()) {
+        if ($this instanceof \App\Models\Leave) {
             $days = $this->calculateLeaveDays();
-            $year = date('Y', strtotime($this->start_date));
-            if ($this->user) {
-                $this->user->deductLeaveQuota($days, $year);
+            
+            if (strtolower(trim($this->type)) === 'cuti besar') {
+                if ($this->user) {
+                    $this->user->deductSabbaticalQuota($days);
+                }
+            } elseif ($this->isLeaveType()) {
+                $year = date('Y', strtotime($this->start_date));
+                if ($this->user) {
+                    $this->user->deductLeaveQuota($days, $year);
+                }
             }
         }
 

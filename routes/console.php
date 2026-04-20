@@ -14,3 +14,7 @@ Schedule::command('leave:allocate-anniversary')->daily();
 // kasus tgl_masuk dikoreksi atau karyawan baru yang belum dapat kuota
 Schedule::command('leave:seed-initial-quota')->weekly();
 
+// Cek kelipatan masa bakti 5 tahun untuk pemberian/pembaruan Cuti Besar
+Schedule::command('sabbatical:manage')->dailyAt('00:30');
+
+
