@@ -14,7 +14,10 @@ return new class extends Migration
         // Menyimpan kuota cuti besar setiap kelipatan 5 tahun
         Schema::connection('pgsql')->create('sabbatical_leaves', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained('m_presensi')->onDelete('cascade');
+            // user_id adalah ID dari tabel m_presensi (database pgsql_master)
+            // Tidak menggunakan foreign constraint karena lintas koneksi/database
+            $table->unsignedBigInteger('user_id');
+            $table->index('user_id');
             $table->integer('quota')->default(10);
             $table->integer('used')->default(0);
             $table->date('expires_at');

@@ -9,7 +9,7 @@ class SabbaticalLeave extends Model
 {
     use HasFactory;
 
-    protected $connection = 'pgsql'; // Sama dengan m_presensi untuk kemudahan
+    protected $connection = 'pgsql'; 
     protected $table = 'sabbatical_leaves';
 
     protected $fillable = [
