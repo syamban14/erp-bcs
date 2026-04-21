@@ -3,13 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * { margin: 0; padding: 0; }
     body { font-family: Arial, sans-serif; font-size: 9pt; color: #1a1a1a; background: #fff; line-height: 1.4; }
 
-    .page { width: 100%; padding: 25px 30px; }
+    /* DOMPDF uses default page margins. We remove width 100% to avoid overflow to the right */
+    .page { padding: 5px 10px; }
 
     /* Fix table layout for DOMPDF compatibility */
-    .header-table { border-bottom: 3px solid #1a3a6b; padding-bottom: 10px; margin-bottom: 12px; }
+    .header-table { border-bottom: 3px solid #1a3a6b; padding-bottom: 12px; margin-bottom: 15px; width: 100%; }
     .header-table h1 { font-size: 14pt; font-weight: bold; color: #1a3a6b; letter-spacing: 0.5px; margin: 0; }
     .header-table p { font-size: 8pt; color: #555; margin-top: 2px; margin: 0; }
     .header-table h2 { font-size: 13pt; font-weight: bold; color: #1a3a6b; text-transform: uppercase; margin: 0; }
@@ -51,20 +52,15 @@
     <table class="header-table" width="100%">
         <tr>
             @if($logo)
-            <td width="70" valign="middle">
-                <img src="{{ $logo }}" style="width: 60px; height: auto;">
+            <td width="100" valign="middle">
+                <img src="{{ $logo }}" style="max-width: 120px; max-height: 50px; object-fit: contain;">
             </td>
             @endif
-            @if(isset($logo2) && $logo2)
-            <td width="70" valign="middle">
-                <img src="{{ $logo2 }}" style="width: 60px; height: auto;">
-            </td>
-            @endif
-            <td valign="middle" class="company-info" style="padding-left: {{ ($logo || (isset($logo2) && $logo2)) ? '10px' : '0' }};">
+            <td valign="middle" class="company-info" style="padding-left: 10px;">
                 <h1>PT. BUANA CENTRA SWAKARSA</h1>
                 <p>Slip Gaji Karyawan — <span style="color:#cc3333;font-weight:bold;">Confidential</span></p>
             </td>
-            <td valign="middle" align="right" width="150" class="slip-title">
+            <td valign="middle" align="right" width="160" class="slip-title">
                 <h2>Slip Gaji</h2>
                 <div class="period-badge">{{ $slip->period->format('F Y') }}</div>
             </td>

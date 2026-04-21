@@ -231,15 +231,10 @@ class SalarySlipController extends Controller
             + ($slip->overtime_allowance ?? 0)
             + ($slip->khk_allowance ?? 0);
 
-        // Cek logo perusahaan (gunakan MYBCS dan BCSHD dari resources)
-        $logoPath = public_path('resources/MYBCS.png');
+        // Cek logo perusahaan (gunakan BCSHD / BCS Logistics saja)
+        $logoPath = public_path('resources/BCSHD.png');
         $logo = file_exists($logoPath)
             ? 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath))
-            : (file_exists(public_path('images/logo.png')) ? 'data:image/png;base64,' . base64_encode(file_get_contents(public_path('images/logo.png'))) : null);
-
-        $logo2Path = public_path('resources/BCSHD.png');
-        $logo2 = file_exists($logo2Path)
-            ? 'data:image/png;base64,' . base64_encode(file_get_contents($logo2Path))
             : null;
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.salary_slip', [
@@ -247,7 +242,6 @@ class SalarySlipController extends Controller
             'totalEarnings' => $totalEarnings,
             'terbilang'     => $this->terbilang((int)$slip->net_salary),
             'logo'          => $logo,
-            'logo2'         => $logo2,
         ])->setPaper('a4', 'portrait');
 
         $filename = 'Slip_Gaji_' . $slip->employee_nik . '_' . $slip->period->format('M_Y') . '.pdf';
