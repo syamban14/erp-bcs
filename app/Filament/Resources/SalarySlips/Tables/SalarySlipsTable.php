@@ -57,6 +57,13 @@ class SalarySlipsTable
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),
+            ])
+            ->defaultGroup('period')
+            ->groups([
+                \Filament\Tables\Grouping\Group::make('period')
+                    ->label('Bulan & Tahun Gajian')
+                    ->getTitleFromRecordUsing(fn ($record) => $record->period->format('F Y'))
+                    ->collapsible(),
             ]);
     }
 }

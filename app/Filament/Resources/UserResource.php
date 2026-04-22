@@ -29,7 +29,7 @@ class UserResource extends Resource
     public static function canAccess(): bool
     {
         // Fitur ini hanya bisa diakses oleh Superhyperadmin
-        return auth()->check() && strtolower(auth()->user()->role) === 'superhyperadmin';
+        return auth()->check() && (auth()->user()->roles->pluck('name')->contains('superhyperadmin') || auth()->user()->id == 1);
     }
 
     public static function form(Schema $schema): Schema
@@ -69,15 +69,7 @@ class UserResource extends Resource
                     ->email()
                     ->required()
                     ->maxLength(255),
-                Forms\Components\Select::make('role')
-                    ->label('Primary Role (DB Column)')
-                    ->options([
-                        'superhyperadmin' => 'Superhyperadmin',
-                        'superadmin'      => 'Superadmin',
-                        'admin'           => 'Admin',
-                        'user'            => 'User',
-                    ])
-                    ->required(),
+
                 Forms\Components\Select::make('roles')
                     ->label('Spatie Roles')
                     ->multiple()
@@ -113,16 +105,7 @@ class UserResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('email')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('role')
-                    ->label('DB Role')
-                    ->searchable()
-                    ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'superhyperadmin' => 'danger',
-                        'superadmin' => 'success',
-                        'admin'      => 'warning',
-                        default      => 'gray',
-                    }),
+
                 Tables\Columns\TextColumn::make('roles.name')
                     ->label('Spatie Roles')
                     ->badge()
@@ -138,12 +121,8 @@ class UserResource extends Resource
                     ->icon('heroicon-o-shield-check')
                     ->color('success')
                     ->requiresConfirmation()
-                    ->visible(fn (User $record) => strtolower($record->role) !== 'superadmin' && strtolower($record->role) !== 'superhyperadmin')
+                    ->visible(fn (User $record) => ! $record->roles->pluck('name')->contains('superadmin') && ! $record->roles->pluck('name')->contains('superhyperadmin'))
                     ->action(function (User $record) {
-                        $record->role = 'superadmin';
-                        $record->save();
-                        
-                        // Coba tambah role spatie jika ada
                         try {
                             if (class_exists(Role::class)) {
                                 if (! Role::where('name', 'superadmin')->exists()) {
