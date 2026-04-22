@@ -37,9 +37,6 @@
     .terbilang-box { border: 1px dashed #1a3a6b; padding: 8px 12px; margin-top: 12px; font-size: 8.5pt; color: #333; background: #fafafa; }
     .terbilang-box span { font-style: italic; font-weight: bold; }
 
-    .paid-stamp { text-align: right; margin-top: 20px; }
-    .badge { display: inline-block; border: 2px solid #16a34a; color: #16a34a; padding: 6px 15px; font-size: 10pt; font-weight: bold; text-transform: uppercase; transform: rotate(-5deg); }
-
     .footer-table { border-top: 1px solid #ddd; margin-top: 20px; padding-top: 10px; font-size: 7.5pt; color: #888; width: 100%; }
     .confidential { font-weight: bold; color: #cc3333; }
     .section-title { font-size: 8.5pt; font-weight: bold; color: #555; text-transform: uppercase; margin-bottom: 6px; padding-left: 6px; border-left: 3px solid #1a3a6b; }
@@ -215,14 +212,6 @@
     <div class="terbilang-box">
         Terbilang: <span>{{ ucwords(strtolower($terbilang)) }}</span>
     </div>
-
-    <table width="100%">
-        <tr>
-            <td align="right" style="padding-top: 15px;">
-                <div class="badge">✓ TELAH DIBAYARKAN</div>
-            </td>
-        </tr>
-    </table>
 
     {{-- FOOTER --}}
     <table class="footer-table">
