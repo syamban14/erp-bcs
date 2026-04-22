@@ -27,6 +27,25 @@ class MKaryawan extends Model
         'payroll_id' => 'string',
     ];
 
+    /**
+     * Boot the model.
+     */
+    protected static function booted()
+    {
+        parent::booted();
+
+        // Sinkronisasi nama ke akun mobile MPresensi setiap kali nama_karyawan diupdate
+        static::updated(function (self $karyawan) {
+            if ($karyawan->isDirty('nama_karyawan')) {
+                if ($karyawan->presensiAccount()->exists()) {
+                    $karyawan->presensiAccount()->update([
+                        'name' => $karyawan->nama_karyawan,
+                    ]);
+                }
+            }
+        });
+    }
+
     public function presensiAccount()
     {
         return $this->hasOne(MPresensi::class, 'karyawan_id');

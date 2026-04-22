@@ -35,6 +35,7 @@ class ShiftSwapRequestResource extends Resource
     {
         return $table
             ->columns([
+            ->columns([
                 Tables\Columns\TextColumn::make('requester.name')
                     ->label('Requester')
                     ->searchable(),
