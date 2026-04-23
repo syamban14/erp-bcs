@@ -111,7 +111,7 @@ class SalarySlipForm
                         TextInput::make('employee_name')->label('Nama Karyawan')->required(),
                         TextInput::make('employee_nik')->label('NIK / Payroll ID')->required(),
                         TextInput::make('employee_position')->label('Jabatan')->nullable(),
-                        TextInput::make('employee_division')->label('Divisi')->nullable(),
+                        TextInput::make('employee_division')->label('Cost Sales')->nullable(),
                     ]),
 
                 // ── Tunjangan Tetap ────────────────────────────────────

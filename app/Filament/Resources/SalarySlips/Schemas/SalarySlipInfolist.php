@@ -23,7 +23,7 @@ class SalarySlipInfolist
                     ->schema([
                         TextEntry::make('employee_name')->label('Nama Karyawan')->weight('bold'),
                         TextEntry::make('employee_nik')->label('NIK / Payroll ID'),
-                        TextEntry::make('employee_division')->label('Divisi'),
+                        TextEntry::make('employee_division')->label('Cost Sales'),
                         TextEntry::make('employee_position')->label('Jabatan'),
                         TextEntry::make('period')->label('Periode Gajian')->date('F Y'),
                         TextEntry::make('created_at')->label('Waktu Upload')->dateTime('d M Y, H:i'),

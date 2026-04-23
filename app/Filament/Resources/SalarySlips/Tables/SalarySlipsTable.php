@@ -21,7 +21,7 @@ class SalarySlipsTable
                     ->sortable()
                     ->weight('bold'),
                 TextColumn::make('employee_division')
-                    ->label('Divisi')
+                    ->label('Cost Sales')
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('period')
