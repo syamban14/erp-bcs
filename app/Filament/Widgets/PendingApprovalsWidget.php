@@ -13,7 +13,7 @@ class PendingApprovalsWidget extends BaseWidget
 {
     use \App\Filament\Concerns\ResolvesDashboardDates;
 
-    protected static ?int $sort = 5;
+    protected static ?int $sort = 0; // Prioritas utama paling atas
     protected int | string | array $columnSpan = 'full';
     protected ?string $pollingInterval = '30s'; // Auto-refresh setiap 30 detik
     
@@ -27,7 +27,7 @@ class PendingApprovalsWidget extends BaseWidget
         $endDate = $dates['end'];
 
         return $table
-            ->heading('Menunggu Persetujuan')
+            ->heading('⚠️ Menunggu Persetujuan (Action Required)')
             ->query(
                 Leave::query()
                     ->with(['user'])

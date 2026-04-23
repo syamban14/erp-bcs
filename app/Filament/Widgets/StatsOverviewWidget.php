@@ -16,11 +16,23 @@ class StatsOverviewWidget extends BaseWidget
 {
     use ResolvesDashboardDates;
 
-    protected static ?int $sort = 1;
+    protected static ?int $sort = 2; // Tampil setelah Live Status
     protected ?string $pollingInterval = '30s'; // Auto-refresh setiap 30 detik
     
     // Disable caching to ensure filters work in real-time
     protected static bool $isLazy = false;
+
+    // Tambahkan Heading Tabel / Widget
+    protected function getHeading(): ?string
+    {
+        return "Rekapitulasi (Periode Berjalan: " . match($this->filters['period'] ?? 'cutoff') {
+            'today' => 'Hari Ini',
+            'week' => 'Minggu Ini',
+            'month' => 'Bulan Ini',
+            'cutoff' => 'Periode Terpilih',
+            default => 'Periode',
+        } . ")";
+    }
     
     protected function getStats(): array
     {
@@ -172,13 +184,12 @@ class StatsOverviewWidget extends BaseWidget
             Stat::make('Total Karyawan', number_format($totalEmployees))
                 ->description($activeEmployees . ' karyawan aktif')
                 ->descriptionIcon('heroicon-m-users')
-                ->color('success')
-                ->chart($empChart),
+                ->color('success'),
             
-            Stat::make("Hadir {$filterLabel}", number_format($presentInPeriod))
+            Stat::make("Hadir ({$filterLabel})", number_format($presentInPeriod))
                 ->description(new \Illuminate\Support\HtmlString(
                     '<span style="display:flex; align-items:center; gap:0.25rem;">' . 
-                    $attendanceRate . '% dari total karyawan ' .
+                    $attendanceRate . '% rata-rata kehadiran harian ' .
                     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style="width: 1.25rem; height: 1.25rem; color: ' . ($attendanceRate >= 90 ? '#22c55e' : ($attendanceRate >= 75 ? '#eab308' : '#ef4444')) . ';">' .
                     '<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />' .
                     '</svg></span>'
@@ -186,47 +197,24 @@ class StatsOverviewWidget extends BaseWidget
                 ->color($attendanceRate >= 90 ? 'success' : ($attendanceRate >= 75 ? 'warning' : 'danger'))
                 ->chart($presenceChart),
             
-            Stat::make('Cuti Sakit', number_format($sickLeaveToday))
-                ->description('Karyawan cuti sakit')
-                ->descriptionIcon('heroicon-m-heart')
-                ->color($sickLeaveToday > 5 ? 'danger' : 'info')
-                ->chart($sickChart),
-            
-            Stat::make('Tugas Luar', number_format($activeOutstation))
-                ->description('Karyawan dalam tugas luar')
-                ->descriptionIcon('heroicon-m-map-pin')
-                ->color('primary')
-                ->chart($outstationChart),
-            
-            Stat::make('Belum Hadir (Hari Ini)', number_format($notPresentYet))
-                ->description('Karyawan aktif belum clock-in hari ini')
-                ->descriptionIcon('heroicon-m-exclamation-triangle')
-                ->color($notPresentYet > 10 ? 'warning' : 'gray')
-                ->chart($notPresentChart),
-            
             Stat::make("Terlambat ({$filterLabel})", number_format(
                     $applyScope(Presence::query())
                         ->whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
                         ->where('late_minutes', '>', 0)
                         ->count()
                 ))
-                ->description('Keterlambatan dalam periode')
+                ->description('Keterlambatan periode ini (Grafik 7 Hari)')
                 ->descriptionIcon('heroicon-m-clock')
                 ->color('danger')
                 ->chart($lateChart),
             
-            Stat::make('Belum Pulang (Hari Ini)', number_format($notClockedOut))
-                ->description('Sudah clock-in hari ini, belum clock-out')
-                ->descriptionIcon('heroicon-m-arrow-right-on-rectangle')
-                ->color('info'),
-            
             Stat::make("Total Shift Malam & Siang ({$filterLabel})", number_format($totalShiftSiangMalam))
-                ->description('Jumlah kehadiran shift siang & malam (pagi tidak dihitung)')
+                ->description('Jumlah kehadiran shift non-pagi')
                 ->descriptionIcon('heroicon-m-moon')
                 ->color('warning'),
             
             Stat::make("Lembur Disetujui ({$filterLabel})", number_format($totalApprovedOvertime))
-                ->description('Pengajuan lembur (SPL) yang sudah disetujui')
+                ->description('Pengajuan lembur (SPL) yang disetujui')
                 ->descriptionIcon('heroicon-m-clipboard-document-check')
                 ->color($totalApprovedOvertime > 0 ? 'info' : 'gray'),
 
