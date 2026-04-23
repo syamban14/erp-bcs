@@ -115,30 +115,6 @@ class UserResource extends Resource
                 //
             ])
             ->actions([
-                // Quick action jadikan superadmin
-                \Filament\Actions\Action::make('makeSuperadmin')
-                    ->label('Jadikan Superadmin')
-                    ->icon('heroicon-o-shield-check')
-                    ->color('success')
-                    ->requiresConfirmation()
-                    ->visible(fn (User $record) => ! $record->roles->pluck('name')->contains('superadmin') && ! $record->roles->pluck('name')->contains('superhyperadmin'))
-                    ->action(function (User $record) {
-                        try {
-                            if (class_exists(Role::class)) {
-                                if (! Role::where('name', 'superadmin')->exists()) {
-                                    Role::create(['name' => 'superadmin']);
-                                }
-                                $record->assignRole('superadmin');
-                            }
-                        } catch (\Exception $e) {}
-
-                        Notification::make()
-                            ->title('Success')
-                            ->body("{$record->name} sekarang menjabat sebagai Superadmin.")
-                            ->success()
-                            ->send();
-                    }),
-
                 \Filament\Actions\EditAction::make(),
             ])
             ->bulkActions([

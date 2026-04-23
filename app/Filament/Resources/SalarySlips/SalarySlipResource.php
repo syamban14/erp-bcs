@@ -39,7 +39,17 @@ class SalarySlipResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->check() && in_array(auth()->user()->role, ['superadmin', 'hr']);
+        if (!auth()->check()) return false;
+        
+        $user = auth()->user();
+        
+        // Hanya memunculkan menu untuk Superadmin atau di-hardcode ke Fiqi & Windy. HR biasa tidak punya akses.
+        return $user->id == 1 || 
+               (isset($user->role) && strtolower($user->role) === 'superadmin') ||
+               in_array(strtolower($user->email ?? ''), [
+                   'windyriche@gmail.com',
+                   'rizkyfiqi4@gmail.com'
+               ]);
     }
 
     public static function form(Schema $schema): Schema

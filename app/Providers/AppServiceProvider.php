@@ -20,13 +20,13 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         \Illuminate\Support\Facades\Gate::before(function ($user, $ability) {
-            // Bypass Gate authorization otomatis untuk roles khusus (Menggunakan Spatie Permission)
-            if ($user->hasAnyRole(['superadmin', 'superhyperadmin'])) {
+            // Mengembalikan hardcode seperti sedia kala sesuai permintaan
+            if (isset($user->role) && in_array(strtolower($user->role), ['superadmin', 'superhyperadmin'])) {
                 return true;
             }
             
             // Bypass Gate authorization otomatis untuk email-email direksi/owner di server
-            if (in_array(strtolower($user->email), [
+            if (isset($user->email) && in_array(strtolower($user->email), [
                 'windyriche@gmail.com',
                 'rizkyfiqi4@gmail.com'
             ])) {
@@ -38,7 +38,7 @@ class AppServiceProvider extends ServiceProvider
 
         // Otorisasi eksklusif Opcodes Log Viewer
         \Illuminate\Support\Facades\Gate::define('viewLogViewer', function ($user) {
-            return $user->hasRole('superhyperadmin');
+            return isset($user->role) && strtolower($user->role) === 'superhyperadmin';
         });
 
         \Laravel\Sanctum\Sanctum::usePersonalAccessTokenModel(\App\Models\PersonalAccessToken::class);
