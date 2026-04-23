@@ -20,7 +20,7 @@ class SalarySlipForm
         'position_allowance', 'meal_allowance', 'transport_allowance',
         'relocation_allowance', 'skill_allowance', 'communication_allowance',
         'other_allowance', 'incentive', 'incentive_10th',
-        'overtime_allowance', 'khk_allowance',
+        'shift_allowance', 'overtime_allowance', 'khk_allowance',
     ];
 
     // ─────────────────────────────────────────────────────────
@@ -86,12 +86,12 @@ class SalarySlipForm
                             ->live()
                             ->afterStateUpdated(function ($state, $set) {
                                 if ($state) {
-                                    $user = \App\Models\MPresensi::with('karyawan.division')->find($state);
+                                    $user = \App\Models\MPresensi::with('karyawan.costSalesInfo')->find($state);
                                     if ($user && $user->karyawan) {
                                         $set('employee_name',     $user->karyawan->nama_karyawan);
-                                        $set('employee_nik',      $user->karyawan->payroll_id);
-                                        $set('employee_position', $user->karyawan->title ?? '-');
-                                        $set('employee_division', optional($user->karyawan->division)->div_name ?? '-');
+                                        $set('employee_nik',      $user->karyawan->getRawOriginal('payroll_id') ?? '-');
+                                        $set('employee_position', optional($user->karyawan->titleInfo)->title ?? $user->karyawan->title ?? '-');
+                                        $set('employee_division', optional($user->karyawan->costSalesInfo)->cost_sales ?? '-');
                                     }
                                 }
                             }),
@@ -140,11 +140,14 @@ class SalarySlipForm
                         self::moneyInput('incentive_10th',          'Incentive 10%'),
                     ]),
 
-                // ── Lembur & KHK ─────────────────────────────────────
-                Section::make('Lembur & KHK')
+                // ── Shift, Lembur & KHK ──────────────────────────────────────
+                Section::make('Shift, Lembur & KHK')
                     ->columns(4)
                     ->collapsible()
                     ->schema([
+                        TextInput::make('shift_count')
+                            ->label('Hari Shift')->numeric()->suffix('hari')->default(0),
+                        self::moneyInput('shift_allowance', 'Shift (IDR)'),
                         TextInput::make('overtime_hours')
                             ->label('Jam Lembur')->numeric()->suffix('jam')->default(0),
                         self::moneyInput('overtime_allowance', 'Lembur (IDR)'),

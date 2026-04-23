@@ -126,6 +126,9 @@
                         @if(($slip->incentive ?? 0) > 0)
                         <tr><td>Insentif</td><td class="amount">{{ 'Rp '.number_format($slip->incentive,0,',','.') }}</td></tr>
                         @endif
+                        @if(($slip->shift_allowance ?? 0) > 0)
+                        <tr><td>Shift ({{ $slip->shift_count ?? 0 }} hari)</td><td class="amount">{{ 'Rp '.number_format($slip->shift_allowance,0,',','.') }}</td></tr>
+                        @endif
                         @if(($slip->overtime_allowance ?? 0) > 0)
                         <tr><td>Lembur ({{ $slip->overtime_hours ?? 0 }} jam)</td><td class="amount">{{ 'Rp '.number_format($slip->overtime_allowance,0,',','.') }}</td></tr>
                         @endif

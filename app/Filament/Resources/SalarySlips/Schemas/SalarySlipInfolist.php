@@ -52,6 +52,8 @@ class SalarySlipInfolist
                         TextEntry::make('other_allowance')->label('Lain-lain')->formatStateUsing($money),
                         TextEntry::make('incentive')->label('Insentif')->formatStateUsing($money),
                         TextEntry::make('incentive_10th')->label('Incentive 10%')->formatStateUsing($money),
+                        TextEntry::make('shift_allowance')->label('Shift (IDR)')->formatStateUsing($money)->color('info'),
+                        TextEntry::make('shift_count')->label('Hari Shift')->suffix(' hari'),
                         TextEntry::make('overtime_allowance')->label('Lembur (IDR)')->formatStateUsing($money),
                         TextEntry::make('overtime_hours')->label('Jam Lembur')->suffix(' jam'),
                         TextEntry::make('khk_allowance')->label('KHK (IDR)')->formatStateUsing($money),

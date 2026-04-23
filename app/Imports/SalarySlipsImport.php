@@ -65,7 +65,7 @@ class SalarySlipsImport
                         'user_id'      => $userId,
                         'employee_name'     => $row['nama_karyawan'] ?? ($karyawan->nama_karyawan ?? 'Unknown'),
                         'employee_position' => $row['jabatan'] ?? ($karyawan->title ?? '-'),
-                        'employee_division' => optional($karyawan->division)->div_name ?? '-',
+                        'employee_division' => $row['cost_sales'] ?? ($karyawan->costSalesInfo->cost_sales ?? '-'),
 
                         'basic_salary'            => $val('gaji_pokok'),
                         'professional_allowance'  => $val('tunj_profesi_tunj_kontribusi'),
@@ -81,7 +81,8 @@ class SalarySlipsImport
                         'communication_allowance' => $val('tunj_komunikasi'),
                         'incentive'               => $val('kenaikan_upah_total_insentif') > 0 ? $val('kenaikan_upah_total_insentif') : ($val('fix_incentive') + $val('insentif_lapangan') + $val('ton_metal_idr') + $val('ton_lokal_idr')),
 
-                        'shift_allowance'    => 0,
+                        'shift_count'        => (int)$val('day_shift'),
+                        'shift_allowance'    => $val('shift'),
                         'overtime_allowance' => $val('selisih_umk_grand_total_overtime') > 0 ? $val('selisih_umk_grand_total_overtime') : ($val('umsk_total_overtime') > 0 ? $val('umsk_total_overtime') : $val('ot_idr')),
                         'overtime_hours'     => $val('ot_hours'),
                         'khk_allowance'      => $val('khk_idr'),
