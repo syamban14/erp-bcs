@@ -46,7 +46,10 @@ class AdminPanelProvider extends PanelProvider
                     ->icon('heroicon-o-document-magnifying-glass')
                     ->group('System Monitor')
                     ->sort(101)
-                    ->visible(fn (): bool => auth()->check() && strtolower(auth()->user()->role) === 'superhyperadmin'),
+                    ->visible(fn (): bool => auth()->check() && (
+                        auth()->user()->roles->pluck('name')->contains('superhyperadmin') ||
+                        auth()->user()->id == 1
+                    )),
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([

@@ -16,12 +16,17 @@ use Filament\Tables\Columns\Layout\Split;
 use Filament\Tables\Columns\Layout\Stack;
 use Filament\Tables\Columns\Layout\Panel;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\Filter;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
 use Filament\Tables\Table;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\Section;
 use Filament\Infolists\Infolist;
 use Filament\Infolists\Components\Grid;
 use Filament\Infolists\Components\KeyValueEntry;
+use Filament\Forms\Components\DatePicker;
+use Carbon\Carbon;
 
 class ApiErrorLogResource extends Resource
 {
@@ -39,6 +44,18 @@ class ApiErrorLogResource extends Resource
     public static function getNavigationLabel(): string
     {
         return 'API Tracker';
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        $count = ApiErrorLog::where('status_code', '>=', 400)
+            ->whereDate('created_at', today())->count();
+        return $count > 0 ? (string)$count : null;
+    }
+
+    public static function getNavigationBadgeColor(): string|array|null
+    {
+        return 'danger';
     }
 
     public static function canViewAny(): bool
@@ -122,6 +139,7 @@ class ApiErrorLogResource extends Resource
             ->defaultSort('created_at', 'desc')
             ->filters([
                 SelectFilter::make('method')
+                    ->label('HTTP Method')
                     ->options([
                         'GET' => 'GET',
                         'POST' => 'POST',
@@ -129,6 +147,7 @@ class ApiErrorLogResource extends Resource
                         'DELETE' => 'DELETE',
                     ]),
                 SelectFilter::make('status_code')
+                    ->label('Status Code')
                     ->options([
                         '200' => '200 (OK)',
                         '201' => '201 (Created)',
@@ -139,11 +158,55 @@ class ApiErrorLogResource extends Resource
                         '422' => '422 (Unprocessable Entity)',
                         '500' => '500 (Internal Server Error)',
                     ]),
+                Filter::make('created_at')
+                    ->label('Rentang Tanggal')
+                    ->form([
+                        DatePicker::make('from')->label('Dari Tanggal'),
+                        DatePicker::make('until')->label('Sampai Tanggal'),
+                    ])
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when($data['from'],  fn ($q, $d) => $q->whereDate('created_at', '>=', $d))
+                            ->when($data['until'], fn ($q, $d) => $q->whereDate('created_at', '<=', $d));
+                    })
+                    ->indicateUsing(function (array $data) {
+                        $parts = [];
+                        if ($data['from'])  $parts[] = 'Dari: ' . Carbon::parse($data['from'])->format('d M Y');
+                        if ($data['until']) $parts[] = 'Sampai: ' . Carbon::parse($data['until'])->format('d M Y');
+                        return implode(' — ', $parts) ?: null;
+                    }),
+                Filter::make('errors_only')
+                    ->label('Hanya Error (4xx / 5xx)')
+                    ->query(fn ($query) => $query->where('status_code', '>=', 400))
+                    ->toggle(),
             ])
             ->recordActions([
                 ViewAction::make(),
                 DeleteAction::make(),
-            ]);
+            ])
+            ->bulkActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make()->label('Hapus Terpilih'),
+                ]),
+            ])
+            ->headerActions([
+                \Filament\Actions\Action::make('purge_old')
+                    ->label('Bersihkan Log > 30 Hari')
+                    ->icon('heroicon-o-trash')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalHeading('Bersihkan API Log Lama?')
+                    ->modalDescription('Semua API log yang berumur lebih dari 30 hari akan dihapus permanen.')
+                    ->action(function () {
+                        $deleted = ApiErrorLog::where('created_at', '<', now()->subDays(30))->delete();
+                        \Filament\Notifications\Notification::make()
+                            ->title("{$deleted} API log lama berhasil dibersihkan.")
+                            ->success()
+                            ->send();
+                    }),
+            ])
+            ->striped()
+            ->paginated([25, 50, 100]);
     }
 
     public static function infolist(Schema $schema): Schema
