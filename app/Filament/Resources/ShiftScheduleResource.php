@@ -133,8 +133,13 @@ class ShiftScheduleResource extends Resource
                     ->searchable(),
             ])
             ->actions([
-                \Filament\Actions\EditAction::make(),
-                \Filament\Actions\DeleteAction::make(),
+                \Filament\Tables\Actions\EditAction::make(),
+                \Filament\Tables\Actions\DeleteAction::make(),
+            ])
+            ->bulkActions([
+                \Filament\Tables\Actions\BulkActionGroup::make([
+                    \Filament\Tables\Actions\DeleteBulkAction::make()->label('Hapus Terpilih'),
+                ]),
             ])
             ->defaultSort('date', 'desc');
     }
