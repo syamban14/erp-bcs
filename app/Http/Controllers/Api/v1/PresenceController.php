@@ -112,7 +112,7 @@ class PresenceController extends Controller
     private function validateAntiFraud(Request $request, $user)
     {
         // Akun reviewer (Google Play/App Store) dikecualikan dari semua cek anti-fraud
-        $bypassEmails = ['reviewer@tester.com'];
+        $bypassEmails = ['reviewer@tester.com', 'applereviewer@tester.com'];
         if (in_array(strtolower($user->email ?? ''), $bypassEmails)) {
             return true;
         }
@@ -187,7 +187,7 @@ class PresenceController extends Controller
             ], 422);
         }
 
-        $bypassEmails = ['reviewer@tester.com'];
+        $bypassEmails = ['reviewer@tester.com', 'applereviewer@tester.com'];
         $user->load(['officeLocations', 'officeLocation']);
         if (!in_array(strtolower($user->email ?? ''), $bypassEmails)) {
             // Ambil semua lokasi — pivot dulu, fallback ke lokasi utama
@@ -390,7 +390,7 @@ class PresenceController extends Controller
         ]);
         
         // ✅ GEOFENCING VALIDATION (Multi-Lokasi)
-        $bypassEmails = ['reviewer@tester.com'];
+        $bypassEmails = ['reviewer@tester.com', 'applereviewer@tester.com'];
         $user->load(['officeLocations', 'officeLocation']);
         if (!in_array(strtolower($user->email ?? ''), $bypassEmails)) {
             $locations = $user->officeLocations->isNotEmpty()
