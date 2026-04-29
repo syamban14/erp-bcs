@@ -38,8 +38,9 @@ class PermissionRequest extends Model
      */
     public function getAttachmentUrlAttribute()
     {
-        return $this->attachment_path 
-            ? asset('storage/' . $this->attachment_path) 
+        // Menggunakan proxy file endpoint untuk bypass nginx 403 (storage symlink issue)
+        return $this->attachment_path
+            ? url('/api/v1/public/files/' . ltrim($this->attachment_path, '/'))
             : null;
     }
 

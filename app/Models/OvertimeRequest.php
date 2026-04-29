@@ -59,7 +59,8 @@ class OvertimeRequest extends Model
             return null;
         }
         
-        return asset('storage/' . $this->attachment_path);
+        // Menggunakan proxy file endpoint untuk bypass nginx 403 (storage symlink issue)
+        return url('/api/v1/public/files/' . ltrim($this->attachment_path, '/'));
     }
 
     public function user()

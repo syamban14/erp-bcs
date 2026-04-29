@@ -34,8 +34,9 @@ class AttendanceCorrection extends Model
      */
     public function getEvidenceUrlAttribute()
     {
-        return $this->evidence 
-            ? asset('storage/' . $this->evidence) 
+        // Menggunakan proxy file endpoint untuk bypass nginx 403 (storage symlink issue)
+        return $this->evidence
+            ? url('/api/v1/public/files/' . ltrim($this->evidence, '/'))
             : null;
     }
 

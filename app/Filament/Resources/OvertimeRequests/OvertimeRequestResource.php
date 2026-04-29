@@ -75,7 +75,7 @@ class OvertimeRequestResource extends Resource
                     ->disabled()
                     ->formatStateUsing(fn ($state) => $state ? basename($state) : '-')
                     ->helperText(fn ($record) => $record && $record->attachment_path
-                        ? new \Illuminate\Support\HtmlString('<a href="' . asset('storage/' . $record->attachment_path) . '" target="_blank" class="text-primary-600 hover:underline">Click to download file</a>')
+                        ? new \Illuminate\Support\HtmlString('<a href="' . url('/api/v1/public/files/' . ltrim($record->attachment_path, '/')) . '" target="_blank" class="text-primary-600 hover:underline">Click to download file</a>')
                         : 'No file available'
                     )
                     ->columnSpanFull(),

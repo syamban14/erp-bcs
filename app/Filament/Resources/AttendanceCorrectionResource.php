@@ -53,15 +53,36 @@ class AttendanceCorrectionResource extends Resource
                     ->label('Reason')
                     ->columnSpanFull()
                     ->disabled(),
-                Forms\Components\FileUpload::make('evidence')
-                    ->label('Evidence')
-                    ->image()
-                    ->disk('public')
-                    ->directory('corrections')
-                    ->visibility('public')
-                    ->downloadable()
-                    ->openable()
-                    ->disabled(),
+                Forms\Components\Placeholder::make('evidence_preview')
+                    ->label('Evidence / Bukti')
+                    ->content(function ($record) {
+                        if (!$record || !$record->evidence) {
+                            return new \Illuminate\Support\HtmlString('<span class="text-gray-400 italic">Tidak ada lampiran</span>');
+                        }
+                        $proxyUrl = url('/api/v1/public/files/' . ltrim($record->evidence, '/'));
+                        $filename = basename($record->evidence);
+                        $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+                        $isImage = in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp']);
+
+                        if ($isImage) {
+                            return new \Illuminate\Support\HtmlString(
+                                '<div class="space-y-2">' .
+                                '<img src="' . $proxyUrl . '" alt="Evidence" class="max-w-sm rounded-lg border shadow" />' .
+                                '<br><a href="' . $proxyUrl . '" target="_blank" class="inline-flex items-center gap-1 text-primary-600 hover:underline text-sm">' .
+                                '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>' .
+                                'Download ' . htmlspecialchars($filename) . '</a>' .
+                                '</div>'
+                            );
+                        }
+
+                        return new \Illuminate\Support\HtmlString(
+                            '<a href="' . $proxyUrl . '" target="_blank" class="inline-flex items-center gap-1 text-primary-600 hover:underline">' .
+                            '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd" /></svg>' .
+                            htmlspecialchars($filename) . ' (Klik untuk buka)' .
+                            '</a>'
+                        );
+                    })
+                    ->columnSpanFull(),
             ]);
     }
 

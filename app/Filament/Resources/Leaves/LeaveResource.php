@@ -67,6 +67,32 @@ class LeaveResource extends Resource
                     ->disabled()
                     ->columnSpanFull(),
 
+                Forms\Components\Placeholder::make('attachment_preview')
+                    ->label('Attachment / Lampiran')
+                    ->content(function ($record) {
+                        if (!$record || !$record->attachment_path) {
+                            return new \Illuminate\Support\HtmlString('<span class="text-gray-400 italic">Tidak ada lampiran</span>');
+                        }
+                        $proxyUrl = url('/api/v1/public/files/' . ltrim($record->attachment_path, '/'));
+                        $filename = basename($record->attachment_path);
+                        $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+                        $isImage = in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp']);
+
+                        if ($isImage) {
+                            return new \Illuminate\Support\HtmlString(
+                                '<div class="space-y-2">' .
+                                '<img src="' . $proxyUrl . '" alt="Lampiran" class="max-w-sm rounded-lg border shadow" />' .
+                                '<br><a href="' . $proxyUrl . '" target="_blank" class="inline-flex items-center gap-1 text-primary-600 hover:underline text-sm">Download ' . htmlspecialchars($filename) . '</a>' .
+                                '</div>'
+                            );
+                        }
+                        return new \Illuminate\Support\HtmlString(
+                            '<a href="' . $proxyUrl . '" target="_blank" class="inline-flex items-center gap-1 text-primary-600 hover:underline">' .
+                            htmlspecialchars($filename) . ' (Klik untuk buka)</a>'
+                        );
+                    })
+                    ->columnSpanFull(),
+
                 Forms\Components\Select::make('status')
                     ->label('Status')
                     ->options([
