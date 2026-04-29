@@ -29,11 +29,9 @@ class AllocateAnnualLeaveQuota extends Command
      */
     public function handle()
     {
-        $todayDay = Carbon::now()->format('d');
-        $todayMonth = Carbon::now()->format('m');
-        $currentYear = Carbon::now()->format('Y');
+        $currentYear = (int) Carbon::now()->year;
 
-        $this->info("Menjalankan tugas alokasi cuti untuk ulang tahun kerja tanggal {$todayDay}/{$todayMonth}...");
+        $this->info("Menjalankan tugas alokasi cuti untuk tahun {$currentYear}...");
 
         $employees = MKaryawan::with('presensiAccount')
             ->where(function ($query) {
@@ -41,61 +39,68 @@ class AllocateAnnualLeaveQuota extends Command
                       ->orWhere('aktif', '1')
                       ->orWhereNull('aktif');
             })
-            ->where(function ($query) use ($todayDay, $todayMonth) {
-                $query->where('tgl_masuk', 'LIKE', $todayDay . '/' . $todayMonth . '/%')
-                      ->orWhere('tgl_masuk', 'LIKE', '%-' . $todayMonth . '-' . $todayDay);
-            })
             ->get();
 
         $count = 0;
         $skipped = 0;
+        $alreadyAllocated = 0;
 
         foreach ($employees as $karyawan) {
             if (!$karyawan->presensiAccount) {
                 continue;
             }
 
-            // --- Validasi: Karyawan HARUS sudah bekerja >= 1 tahun ---
             $joinDate = null;
             $rawDate = $karyawan->tgl_masuk;
 
-            // Coba parse format dd/MM/YYYY
             try {
                 if (preg_match('/^\d{2}\/\d{2}\/\d{4}$/', $rawDate)) {
-                    $joinDate = Carbon::createFromFormat('d/m/Y', $rawDate);
+                    $joinDate = Carbon::createFromFormat('d/m/Y', $rawDate)->startOfDay();
                 } elseif (preg_match('/^\d{4}-\d{2}-\d{2}/', $rawDate)) {
-                    $joinDate = Carbon::parse($rawDate);
+                    $joinDate = Carbon::parse(substr($rawDate, 0, 10))->startOfDay();
                 }
             } catch (\Exception $e) {
                 $joinDate = null;
             }
 
-            // Lewati jika tanggal tidak bisa di-parse atau masa kerja < 1 tahun
-            if (!$joinDate || Carbon::now()->diffInYears($joinDate) < 1) {
+            if (!$joinDate || $joinDate->diffInYears(Carbon::now()) < 1) {
                 $skipped++;
-                $this->line("  [SKIP] {$karyawan->nama_karyawan} — masa kerja belum genap 1 tahun.");
+                continue;
+            }
+
+            // Hitung tanggal anniversary di tahun ini
+            $anniversaryThisYear = $joinDate->copy()->year($currentYear);
+            
+            // Jika anniversary belum tiba tahun ini, lewati
+            if (Carbon::now()->startOfDay()->lessThan($anniversaryThisYear)) {
+                $skipped++;
                 continue;
             }
 
             $user = $karyawan->presensiAccount;
 
-            // Reset kuota cuti ke 12, dan riwayat "used" jadi 0 (refresh tahunan)
-            LeaveBalance::updateOrCreate(
-                [
-                    'user_id' => $user->id,
-                    'year' => $currentYear,
-                ],
-                [
-                    'quota' => 12,
-                    'used' => 0,
-                ]
+            // Cek apakah sudah dapat kuota tahun ini (quota > 0)
+            $balance = LeaveBalance::firstOrCreate(
+                ['user_id' => $user->id, 'year' => $currentYear],
+                ['quota' => 0, 'used' => 0]
             );
 
-            $count++;
-            $this->line("  [OK] {$karyawan->nama_karyawan} — Kuota cuti direset ke 12.");
+            // Jika kuota masih 0 atau minus (belum dialokasikan atau ada hutang cuti)
+            if ($balance->quota <= 0) {
+                $newQuota = $balance->quota + 12; // Tambahkan 12 agar hutang cuti (minus) terpotong
+                
+                $balance->update([
+                    'quota' => $newQuota,
+                    // Kita tidak mereset 'used' karena jika ada cuti diawal tahun, itu harus tetap tercatat
+                ]);
+                $count++;
+                $this->line("  [OK] {$karyawan->nama_karyawan} — Kuota cuti ditambahkan 12 (Total: {$newQuota}).");
+            } else {
+                $alreadyAllocated++;
+            }
         }
 
-        $message = "Alokasi Cuti Tahunan Sukses: {$count} karyawan mendapat kuota 12, {$skipped} dilewati (masa kerja < 1 tahun atau tanggal tidak valid) dari {$employees->count()} total record.";
+        $message = "Alokasi Cuti Tahunan: {$count} karyawan mendapat kuota baru. {$alreadyAllocated} sudah dialokasikan sebelumnya. {$skipped} dilewati (masa kerja < 1 thn / belum anniversary).";
         $this->info($message);
         Log::channel('daily')->info('LeaveAllocationSync: ' . $message);
     }
