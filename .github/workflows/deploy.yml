@@ -28,6 +28,7 @@ jobs:
             cd /var/www/html/presensi
 
             # Pull kode terbaru dari GitHub secara paksa (mengabaikan perubahan lokal di server)
+            git config --global --add safe.directory /var/www/html/presensi
             git fetch --all
             git reset --hard origin/main
             
