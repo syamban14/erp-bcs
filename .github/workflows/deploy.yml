@@ -36,10 +36,13 @@ jobs:
             git fetch --all
             git reset --hard origin/main
             
+            # Menghentikan container lama (jika ada)
+            docker compose down --remove-orphans
+            
             # Memastikan image menggunakan base terbaru dan mem-build ulang image aplikasi
             docker compose build --pull
             
-            # Menjalankan atau merestart container di background
+            # Menjalankan container baru di background
             docker compose up -d
             
             # Menjalankan migrasi database di dalam container aplikasi
