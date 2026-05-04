@@ -447,7 +447,7 @@ class ApprovalController extends Controller
         $attachmentUrl  = null;
         if (isset($approvable->attachment_path) && $approvable->attachment_path) {
             $attachmentName = basename($approvable->attachment_path);
-            $attachmentUrl  = url('storage/' . $approvable->attachment_path);
+            $attachmentUrl  = url('/api/v1/public/files/' . ltrim($approvable->attachment_path, '/'));
         }
 
         $approvalId = 'af_' . $flow->id;
