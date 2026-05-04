@@ -21,6 +21,8 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT }} # Biasanya 22
           script: |
+            set -e
+            
             # PENTING: JANGAN DIKOMENTARI (#). Jika lokasi folder di server Anda berbeda, 
             # SILAKAN UBAH path "/var/www/html/presensi" ke lokasi yang benar.
             cd /var/www/html/presensi
