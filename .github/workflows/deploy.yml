@@ -28,10 +28,10 @@ jobs:
             git pull origin main
             
             # Memastikan image menggunakan base terbaru dan mem-build ulang image aplikasi
-            docker-compose build --pull
+            docker compose build --pull
             
             # Menjalankan atau merestart container di background
-            docker-compose up -d
+            docker compose up -d
             
             # Menjalankan migrasi database di dalam container aplikasi
             docker exec presensi_app php artisan migrate --force
