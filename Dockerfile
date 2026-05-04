@@ -35,9 +35,9 @@ WORKDIR /var/www/html
 COPY . .
 
 # Install PHP dependencies
-# Note: In a real production CI/CD, you might want to omit `--no-dev` if you run tests,
-# but for the final image, it's recommended to use `--no-dev --optimize-autoloader`
-RUN composer install --no-interaction --prefer-dist --optimize-autoloader
+# Laravel membutuhkan file .env untuk memproses post-autoload-dump scripts
+RUN cp .env.example .env \
+    && php -d memory_limit=-1 /usr/bin/composer install --no-interaction --prefer-dist --optimize-autoloader
 
 # Install Node dependencies and build assets for Filament/Vite
 RUN npm install && npm run build
