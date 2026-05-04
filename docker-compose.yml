@@ -6,7 +6,12 @@ services:
     container_name: presensi_app
     restart: unless-stopped
     working_dir: /var/www/html
+    env_file:
+      - .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
+      - ./.env:/var/www/html/.env
       - presensi_storage:/var/www/html/storage
     networks:
       - presensi-network
