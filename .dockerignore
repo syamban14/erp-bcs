@@ -1,0 +1,17 @@
+/node_modules
+/vendor
+/public/build
+/public/hot
+/storage/*.key
+/storage/logs
+/storage/framework/cache
+/storage/framework/sessions
+/storage/framework/views
+/.env
+/.git
+/.github
+/.vscode
+/.idea
+/docker
+/docker-compose.yml
+/Dockerfile
