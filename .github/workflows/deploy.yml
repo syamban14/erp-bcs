@@ -21,9 +21,10 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT }} # Biasanya 22
           script: |
-            # Masuk ke direktori aplikasi di server
-            # cd /var/www/html/presensi
-            
+            # PENTING: JANGAN DIKOMENTARI (#). Jika lokasi folder di server Anda berbeda, 
+            # SILAKAN UBAH path "/var/www/html/presensi" ke lokasi yang benar.
+            cd /var/www/html/presensi
+
             # Pull kode terbaru dari GitHub
             git pull origin main
             
