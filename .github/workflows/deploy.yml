@@ -15,7 +15,10 @@ jobs:
 
       - name: Execute Deployment Commands via SSH
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          envs: GITHUB_TOKEN
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USERNAME }}
           key: ${{ secrets.SERVER_SSH_KEY }}
@@ -27,8 +30,9 @@ jobs:
             # SILAKAN UBAH path "/var/www/html/presensi" ke lokasi yang benar.
             cd /var/www/html/presensi
 
-            # Pull kode terbaru dari GitHub secara paksa (mengabaikan perubahan lokal di server)
+            # Pull kode terbaru dari GitHub secara paksa (menggunakan token agar tidak perlu login)
             git config --global --add safe.directory /var/www/html/presensi
+            git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/itbcslogistics/presensi-app.git
             git fetch --all
             git reset --hard origin/main
             
