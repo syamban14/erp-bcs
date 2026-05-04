@@ -1,15 +1,13 @@
+version: '3.8'
+
 services:
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: presensi-app
+    image: ghcr.io/${IMAGE_NAME:-itbcslogistics/presensi-app}:latest
     container_name: presensi_app
     restart: unless-stopped
     working_dir: /var/www/html
     volumes:
-      - ./.env:/var/www/html/.env
-      - ./storage:/var/www/html/storage
+      - presensi_storage:/var/www/html/storage
     networks:
       - presensi-network
 
@@ -20,17 +18,16 @@ services:
     ports:
       - "8000:80"
     volumes:
-      - app-data:/var/www/html
-      - ./storage:/var/www/html/storage
+      - ./public-build:/var/www/html/public
       - ./docker/nginx/conf.d:/etc/nginx/conf.d
     depends_on:
       - app
     networks:
       - presensi-network
 
-volumes:
-  app-data:
-
 networks:
   presensi-network:
     driver: bridge
+
+volumes:
+  presensi_storage:

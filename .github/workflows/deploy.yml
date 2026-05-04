@@ -1,57 +1,82 @@
-name: Deploy to Production Server
+name: Deploy Presensi to Production
 
 on:
   push:
     branches:
       - main # Jalankan otomatis ketika ada push ke branch main
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
     steps:
-      - name: Checkout Repository
+      - name: 1. Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Execute Deployment Commands via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: 2. Login to GitHub Container Registry
+        uses: docker/login-action@v3
         with:
-          envs: GITHUB_TOKEN
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 3. Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: type=raw,value=latest
+
+      - name: 4. Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.txt # Sesuaikan jika nanti filenya bernama Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: 5. Execute Deployment Commands via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USERNAME }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          port: ${{ secrets.SERVER_PORT }} # Biasanya 22
+          port: ${{ secrets.SERVER_PORT }}
           script: |
             set -e
             
-            # PENTING: JANGAN DIKOMENTARI (#). Jika lokasi folder di server Anda berbeda, 
-            # SILAKAN UBAH path "/var/www/html/presensi" ke lokasi yang benar.
+            # Pindah ke folder instalasi
             cd /var/www/html/presensi
-
-            # Pull kode terbaru dari GitHub secara paksa (menggunakan token agar tidak perlu login)
-            git config --global --add safe.directory /var/www/html/presensi
-            git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/itbcslogistics/presensi-app.git
-            git fetch --all
-            git reset --hard origin/main
             
-            # Pastikan file .env ada di server (jika belum, buat dari .env.example)
-            [ -f .env ] || cp .env.example .env
+            # Tarik docker-compose.yml terbaru dari git (karena butuh file docker/nginx juga)
+            # Opsional: Jika tidak pakai git pull, Anda harus pakai scp-action untuk mengcopy file.
+            git pull origin main
             
-            # Menghentikan container lama (jika ada)
-            docker compose down --remove-orphans
+            # Login ke GHCR di dalam server
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
-            # Memastikan image menggunakan base terbaru dan mem-build ulang image aplikasi
-            docker compose build --pull
+            # Pull image terbaru dari GHCR
+            docker compose pull app
             
-            # Menjalankan container baru di background
+            # Ekstrak folder public dari image agar bisa dibaca oleh Nginx
+            # (Karena Nginx berada di container terpisah dan butuh file statis CSS/JS)
+            docker create --name temp_presensi_app ghcr.io/${{ env.IMAGE_NAME }}:latest
+            docker cp temp_presensi_app:/var/www/html/public ./public-build
+            docker rm temp_presensi_app
+            
+            # Restart container
             docker compose up -d
             
-            # Menjalankan migrasi database di dalam container aplikasi
+            # Jalankan migrasi dan optimasi Laravel
             docker exec presensi_app php artisan migrate --force
-            
-            # Membersihkan cache aplikasi di dalam container
             docker exec presensi_app php artisan optimize:clear
             docker exec presensi_app php artisan config:cache
             docker exec presensi_app php artisan route:cache
