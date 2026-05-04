@@ -87,18 +87,18 @@ return [
             'driver' => 'pgsql',
             'url' => env('DB_URL'),
             'host' => env('DB_HOST', '127.0.0.1'),
-            'port' => env('DB_PORT', '5432'),
-            'database' => env('DB_DATABASE', 'laravel'),
-            'username' => env('DB_USERNAME', 'root'),
+            'port' => env('DB_PORT', '5433'),               // Default fallback 5433
+            'database' => env('DB_DATABASE', 'mybcs_db'),
+            'username' => env('DB_USERNAME', 'bcs_admin'),
             'password' => env('DB_PASSWORD', ''),
             'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',
             'prefix_indexes' => true,
-            'search_path' => 'public',
+            'search_path' => env('DB_SCHEMA', 'presensi'),  // Menangkap skema presensi
             'sslmode' => 'prefer',
             'options' => [
-                PDO::ATTR_PERSISTENT => false,         // Jangan gunakan persistent connection
-                PDO::ATTR_TIMEOUT => 5,                // Timeout koneksi 5 detik
+                PDO::ATTR_PERSISTENT => false,
+                PDO::ATTR_TIMEOUT => 5,
             ],
         ],
 
@@ -106,18 +106,18 @@ return [
             'driver' => 'pgsql',
             'url' => env('DB_URL'),
             'host' => env('DB_HOST_SECOND', '127.0.0.1'),
-            'port' => env('DB_PORT_SECOND', '5432'),
-            'database' => env('DB_DATABASE_SECOND', 'master_db'),
-            'username' => env('DB_USERNAME_SECOND', 'postgres'),
-            'password' => env('DB_PASSWORD_SECOND', 'postgres'),
+            'port' => env('DB_PORT_SECOND', '5433'),               // Default fallback 5433
+            'database' => env('DB_DATABASE_SECOND', 'mybcs_db'),
+            'username' => env('DB_USERNAME_SECOND', 'bcs_admin'),
+            'password' => env('DB_PASSWORD_SECOND', ''),
             'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',
             'prefix_indexes' => true,
-            'search_path' => 'public',
+            'search_path' => env('DB_SCHEMA_SECOND', 'master'),    // Menangkap skema master
             'sslmode' => 'prefer',
             'options' => [
-                PDO::ATTR_PERSISTENT => false,         // Jangan gunakan persistent connection
-                PDO::ATTR_TIMEOUT => 5,                // Timeout koneksi 5 detik
+                PDO::ATTR_PERSISTENT => false,
+                PDO::ATTR_TIMEOUT => 5,
             ],
         ],
 
