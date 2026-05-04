@@ -36,6 +36,9 @@ jobs:
             git fetch --all
             git reset --hard origin/main
             
+            # Pastikan file .env ada di server (jika belum, buat dari .env.example)
+            [ -f .env ] || cp .env.example .env
+            
             # Menghentikan container lama (jika ada)
             docker compose down --remove-orphans
             
