@@ -38,14 +38,17 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile
+          file: ./Dockerfile.txt # Sesuaikan jika nanti filenya bernama Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
       - name: 5. Execute Deployment Commands via SSH
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          envs: GITHUB_TOKEN
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USERNAME }}
           key: ${{ secrets.SERVER_SSH_KEY }}
@@ -56,9 +59,11 @@ jobs:
             # Pindah ke folder instalasi
             cd /var/www/html/presensi
             
-            # Tarik docker-compose.yml terbaru dari git (karena butuh file docker/nginx juga)
-            # Opsional: Jika tidak pakai git pull, Anda harus pakai scp-action untuk mengcopy file.
-            git pull origin main
+            # Tarik docker-compose.yml terbaru dari git menggunakan token otomatis
+            git config --global --add safe.directory /var/www/html/presensi
+            git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
+            git fetch --all
+            git reset --hard origin/main
             
             # Login ke GHCR di dalam server
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
