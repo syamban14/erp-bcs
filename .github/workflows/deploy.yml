@@ -80,7 +80,11 @@ jobs:
             # Restart container
             docker compose up -d
             
+            # Inject .env dari server ke dalam container (agar konfigurasi DB benar)
+            docker cp /var/www/html/presensi/.env presensi_app:/var/www/html/.env
+            
             # Jalankan migrasi dan optimasi Laravel
+            docker exec presensi_app php artisan config:clear
             docker exec presensi_app php artisan migrate --force
             docker exec presensi_app php artisan optimize:clear
             docker exec presensi_app php artisan config:cache
