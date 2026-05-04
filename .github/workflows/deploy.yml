@@ -25,8 +25,9 @@ jobs:
             # SILAKAN UBAH path "/var/www/html/presensi" ke lokasi yang benar.
             cd /var/www/html/presensi
 
-            # Pull kode terbaru dari GitHub
-            git pull origin main
+            # Pull kode terbaru dari GitHub secara paksa (mengabaikan perubahan lokal di server)
+            git fetch --all
+            git reset --hard origin/main
             
             # Memastikan image menggunakan base terbaru dan mem-build ulang image aplikasi
             docker compose build --pull
