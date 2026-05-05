@@ -94,7 +94,7 @@ return [
             'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',
             'prefix_indexes' => true,
-            'search_path' => env('DB_SCHEMA', 'presensi'),  // Menangkap skema presensi
+            'search_path' => env('DB_SCHEMA', 'presensi') . ',master',  // Menangkap skema presensi + master untuk cross-schema query
             'sslmode' => 'prefer',
             'options' => [
                 PDO::ATTR_PERSISTENT => false,
