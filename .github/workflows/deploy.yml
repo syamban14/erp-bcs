@@ -80,6 +80,10 @@ jobs:
             # Restart container
             docker compose up -d
             
+            # Fix permission storage agar www-data bisa menulis log dan cache
+            docker exec presensi_app chown -R www-data:www-data /var/www/html/storage
+            docker exec presensi_app chmod -R 775 /var/www/html/storage
+            
             # Jalankan migrasi dan optimasi Laravel
             docker exec presensi_app php artisan config:clear
             docker exec presensi_app php artisan migrate --force
