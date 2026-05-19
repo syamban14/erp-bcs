@@ -42,6 +42,11 @@ class Presence extends Model
         // For simplicity, we just say it belongsTo MPresensi.
         return $this->setConnection('pgsql_master')->belongsTo(MPresensi::class, 'user_id');
     }
+
+    public function presensiUser()
+    {
+        return $this->setConnection('pgsql_master')->belongsTo(MPresensi::class, 'user_id');
+    }
     
     public function shiftCode()
     {

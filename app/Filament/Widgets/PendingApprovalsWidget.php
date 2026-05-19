@@ -26,10 +26,15 @@ class PendingApprovalsWidget extends BaseWidget
         $startDate = $dates['start'];
         $endDate = $dates['end'];
 
-        return $table
-            ->heading('⚠️ Menunggu Persetujuan (Action Required)')
-            ->query(
-                Leave::query()
+        $user = auth()->user();
+        $isGlobalAdmin = $user ? $user->isGlobalAdmin() : false;
+        $subordinateIds = $isGlobalAdmin ? [] : ($user ? $user->getSubordinateUserIds() : []);
+        if (!$isGlobalAdmin && $user) {
+            $subordinateIds[] = $user->id;
+        }
+        $scopeIds = empty($subordinateIds) ? [-1] : $subordinateIds;
+
+        $query = Leave::query()
                     ->with(['user'])
                     ->where('status', 'pending')
                     ->whereBetween('created_at', [
@@ -37,8 +42,15 @@ class PendingApprovalsWidget extends BaseWidget
                         $endDate->endOfDay()
                     ])
                     ->latest()
-                    ->limit(10)
-            )
+                    ->limit(10);
+                    
+        if (!$isGlobalAdmin) {
+            $query->whereIn('user_id', $scopeIds);
+        }
+
+        return $table
+            ->heading('⚠️ Menunggu Persetujuan (Action Required)')
+            ->query($query)
             ->columns([
                 Tables\Columns\TextColumn::make('user.name')
                     ->label('Nama Karyawan')

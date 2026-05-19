@@ -36,7 +36,10 @@ class EmployeeLeaderboardWidget extends Widget
         
         $user = auth()->user();
         $isGlobalAdmin = $user ? $user->isGlobalAdmin() : false;
-        $subordinateIds = $isGlobalAdmin ? [] : collect($user ? $user->getSubordinateUserIds() : []);
+        $subordinateIds = $isGlobalAdmin ? collect() : collect($user ? $user->getSubordinateUserIds() : []);
+        if (!$isGlobalAdmin && $user) {
+            $subordinateIds->push($user->id);
+        }
 
         $query = DB::connection('pgsql')
             ->table('presences')
@@ -107,7 +110,10 @@ class EmployeeLeaderboardWidget extends Widget
         
         $user = auth()->user();
         $isGlobalAdmin = $user ? $user->isGlobalAdmin() : false;
-        $subordinateIds = $isGlobalAdmin ? [] : collect($user ? $user->getSubordinateUserIds() : []);
+        $subordinateIds = $isGlobalAdmin ? collect() : collect($user ? $user->getSubordinateUserIds() : []);
+        if (!$isGlobalAdmin && $user) {
+            $subordinateIds->push($user->id);
+        }
 
         $query = DB::connection('pgsql')
             ->table('presences')

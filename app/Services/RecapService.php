@@ -14,6 +14,30 @@ use Illuminate\Support\Collection;
 class RecapService
 {
     /**
+     * Fetch national holidays from Nager.Date API and cache it.
+     * Excludes "Cuti Bersama" (Joint Leave).
+     */
+    public function getNationalHolidays($year)
+    {
+        return \Illuminate\Support\Facades\Cache::remember("national_holidays_id_{$year}", 60 * 60 * 24 * 30, function () use ($year) {
+            try {
+                $response = \Illuminate\Support\Facades\Http::timeout(5)->get("https://date.nager.at/api/v3/PublicHolidays/{$year}/ID");
+                
+                if ($response->successful()) {
+                    $holidays = collect($response->json());
+                    // Filter out any holiday containing "Cuti Bersama"
+                    return $holidays->filter(function ($h) {
+                        return stripos($h['localName'] ?? '', 'Cuti Bersama') === false;
+                    })->pluck('date')->toArray();
+                }
+            } catch (\Exception $e) {
+                // Log or ignore
+            }
+            return [];
+        });
+    }
+
+    /**
      * Get recap data for a specific user and date range
      */
     public function getRecapData(MPresensi $user, $startDate, $endDate)
@@ -54,7 +78,6 @@ class RecapService
         // 5. Calculate Metrics
         
         // Total Hari Kerja (Scheduled)
-        // Total Hari Kerja (Scheduled)
         $shifts = ShiftSchedule::where('user_id', $user->id)
             ->whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
             ->whereHas('shiftCode', function ($query) {
@@ -62,21 +85,29 @@ class RecapService
             })
             ->count();
             
-        // If no shifts (Regular Employee?), assume Mon-Fri or Mon-Sat minus holidays?
-        // For simplicity, if count is 0, we might need a fallback.
-        // But assuming most have shifts generated.
-        $totalWorkingDays = $shifts;
+        // Get national holidays for the covered years
+        $holidays = array_merge(
+            $this->getNationalHolidays($startDate->year),
+            $startDate->year !== $endDate->year ? $this->getNationalHolidays($endDate->year) : []
+        );
+
+        // Count how many of those scheduled shifts fall on a national holiday
+        $shiftsOnHolidays = ShiftSchedule::where('user_id', $user->id)
+            ->whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
+            ->whereIn('date', $holidays)
+            ->whereHas('shiftCode', function ($query) {
+                $query->where('is_off', false); // Scheduled as working day
+            })
+            ->count();
+            
+        // Real working days is total scheduled non-off minus holidays that overlap with schedules
+        $totalWorkingDays = max(0, $shifts - $shiftsOnHolidays);
 
         // Total Kehadiran
         $totalPresent = $presences->whereNotNull('clock_in')->count();
         
         // Hadir Luar Jadwal
-        // Complex: Check entries where date is NOT in non-off shifts.
-        // Actually simpler: If presence exists but shift was Off.
-        // But calculating from database is hard without joining.
-        // Let's assume most presences match schedule.
-        // Use a heuristic: If working days < present, difference is outside schedule? Not accurate.
-        // Skip exact "Hadir Luar Jadwal" unless critical, or count presences where ShiftCode is 'OFF' (if stored).
+        // (Optional: can calculate by checking if presence date is in 'holidays' or is 'is_off' shift)
         $presentOffSchedule = 0; // Placeholder
         
         // Durasi Kehadiran
@@ -91,7 +122,6 @@ class RecapService
             $days = $leave->calculateLeaveDays(); // Helper model method
             
             // Adjust intersection with period if needed, but usually leave < 1 month
-            // Simple type check
             $type = strtolower($leave->type);
             if (in_array($type, ['tahunan', 'annual'])) {
                 $paidLeaveDays += $days;
@@ -102,14 +132,7 @@ class RecapService
             }
         }
         
-        // Izin (jam) -> Actually count occurrences or sum late/early?
-        // User asked for "Izin (jam)", "Terlambat (jam)", "Pulang lebih awal (jam)".
-        // So Izin might be "Keluar Kantor".
-        // PermissionRequest types: 'Izin Terlambat' (handled in late), 
-        // 'Izin Pulang Awal' (handled in early?), 'Izin Keluar Kantor'.
-        // We will count 'Izin Keluar Kantor'.
-        // But Permissions don't have duration stored, just 'time'? 
-        // We'll return count for now or 0.
+        // Izin (jam)
         $permissionHours = 0; 
         
         // Tugas Luar (kali)
@@ -122,17 +145,10 @@ class RecapService
         $overtimeHours = $presences->sum('overtime_minutes') / 60;
         
         // Pulang Lebih Awal (jam)
-        // Need to calculate early_out_minutes if not in DB.
-        // Assuming we add a helper or just skip if expensive.
-        // Let's assume 0 for MVP or calculate in memory loop if few records.
         $earlyOutHours = 0;
-        foreach ($presences as $p) {
-            // Need shift info to calc early out
-        }
         
         // Alpa (Hari)
         // Scheduled - (Present + Leave + Permission(Full) + Outstation)
-        // Approximate:
         $alphaDays = max(0, $totalWorkingDays - ($totalPresent + $paidLeaveDays + $specialLeaveDays + $sickLeaveDays + $outstationCount));
         
         return [

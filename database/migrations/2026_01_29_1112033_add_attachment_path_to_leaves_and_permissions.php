@@ -11,13 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('leaves', function (Blueprint $table) {
-            $table->string('attachment_path')->nullable()->after('reason');
-        });
+        if (!Schema::hasColumn('leaves', 'attachment_path')) {
+            Schema::table('leaves', function (Blueprint $table) {
+                $table->string('attachment_path')->nullable()->after('reason');
+            });
+        }
 
-        Schema::table('permission_requests', function (Blueprint $table) {
-            $table->string('attachment_path')->nullable()->after('reason');
-        });
+        if (!Schema::hasColumn('permission_requests', 'attachment_path')) {
+            Schema::table('permission_requests', function (Blueprint $table) {
+                $table->string('attachment_path')->nullable()->after('reason');
+            });
+        }
     }
 
     /**

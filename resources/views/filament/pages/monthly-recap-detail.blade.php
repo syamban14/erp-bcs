@@ -5,6 +5,7 @@
     use App\Models\Leave;
     use App\Models\PermissionRequest;
     use App\Models\OutstationRequest;
+    use App\Services\RecapService;
 
     $month      = $month ?? now()->month;
     $year       = $year  ?? now()->year;
@@ -34,6 +35,13 @@
         ->get();
 
     $presenceMap = $presences->keyBy(fn($p) => Carbon::parse($p->date)->format('Y-m-d'));
+    
+    // Get national holidays using RecapService
+    $recapService = app(RecapService::class);
+    $nationalHolidays = array_merge(
+        $recapService->getNationalHolidays($startDate->year),
+        $startDate->year !== $endDate->year ? $recapService->getNationalHolidays($endDate->year) : []
+    );
 
     // Build day-by-day entries
     $days = [];
@@ -45,14 +53,23 @@
         $outstation= $outstations->first(fn($o) =>
             $cur->between(Carbon::parse($o->start_date), Carbon::parse($o->end_date))
         );
+        $isNationalHoliday = in_array($key, $nationalHolidays);
 
         $status = 'Tidak Hadir';
         $badge  = 'bg-red-100 text-red-700';
+        
         if ($presence && $presence->clock_in) {
             $status = 'Hadir';
             $badge  = 'bg-green-100 text-green-700';
+            if ($isNationalHoliday) {
+                $status = 'Hadir (Libur Nasional)';
+                $badge  = 'bg-emerald-100 text-emerald-800'; // Make it slightly different
+            } elseif ($cur->isWeekend()) {
+                $status = 'Hadir (Akhir Pekan)';
+                $badge  = 'bg-teal-100 text-teal-800';
+            }
             if ($presence->late_minutes > 0) {
-                $status = 'Hadir (Terlambat ' . $presence->late_minutes . ' mnt)';
+                $status .= ' (Terlambat ' . $presence->late_minutes . ' mnt)';
                 $badge  = 'bg-yellow-100 text-yellow-700';
             }
         } elseif ($leave) {
@@ -62,8 +79,11 @@
         } elseif ($outstation) {
             $status = 'Tugas Luar';
             $badge  = 'bg-purple-100 text-purple-700';
+        } elseif ($isNationalHoliday) {
+            $status = 'Libur Nasional';
+            $badge  = 'bg-orange-100 text-orange-700'; // Distinct color for national holiday
         } elseif ($cur->isWeekend()) {
-            $status = 'Libur';
+            $status = 'Libur (Akhir Pekan)';
             $badge  = 'bg-gray-100 text-gray-500';
         }
 
@@ -76,6 +96,7 @@
             'hours'      => $presence?->working_hours ? round($presence->working_hours, 1) : 0,
             'status'     => $status,
             'badge'      => $badge,
+            'is_holiday' => $isNationalHoliday || $cur->isWeekend(),
         ];
 
         $cur->addDay();
@@ -115,7 +136,16 @@
             </thead>
             <tbody>
                 @foreach ($days as $i => $day)
-                <tr style="background:{{ $i % 2 === 0 ? '#0f172a' : '#111827' }};border-bottom:1px solid #1e293b;">
+                @php
+                    if ($day['is_holiday']) {
+                        // Merah gelap / orange gelap untuk hari libur
+                        $rowBg = $i % 2 === 0 ? '#450a0a' : '#3f0c0c'; 
+                    } else {
+                        // Biru gelap default
+                        $rowBg = $i % 2 === 0 ? '#0f172a' : '#111827';
+                    }
+                @endphp
+                <tr style="background:{{ $rowBg }};border-bottom:1px solid #1e293b;">
                     <td style="padding:6px 8px;color:#e2e8f0;white-space:nowrap;">
                         {{ $day['date']->translatedFormat('D, d M') }}
                     </td>

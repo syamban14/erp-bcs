@@ -103,6 +103,14 @@ class MonthlyRecap extends Page implements HasForms, HasTable
                 if ($this->unit) {
                     $query->where('office_location_id', $this->unit);
                 }
+                
+                $user = auth()->user();
+                if ($user && !$user->isGlobalAdmin()) {
+                    $allowedIds = $user->getSubordinateUserIds();
+                    $allowedIds[] = $user->id; // Boleh melihat datanya sendiri
+                    $query->whereIn('id', $allowedIds);
+                }
+                
                 return $query;
             })
             ->columns([

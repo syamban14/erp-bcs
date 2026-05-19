@@ -33,7 +33,10 @@ class LeaderboardWidget extends Widget
         
         $user = auth()->user();
         $isGlobalAdmin = $user ? $user->isGlobalAdmin() : false;
-        $subordinateIds = $isGlobalAdmin ? [] : collect($user ? $user->getSubordinateUserIds() : []);
+        $subordinateIds = $isGlobalAdmin ? collect() : collect($user ? $user->getSubordinateUserIds() : []);
+        if (!$isGlobalAdmin && $user) {
+            $subordinateIds->push($user->id);
+        }
 
         // Step 1: Get all divisions
         $divisions = DB::connection('pgsql_master')
@@ -96,7 +99,10 @@ class LeaderboardWidget extends Widget
         
         $user = auth()->user();
         $isGlobalAdmin = $user ? $user->isGlobalAdmin() : false;
-        $subordinateIds = $isGlobalAdmin ? [] : collect($user ? $user->getSubordinateUserIds() : []);
+        $subordinateIds = $isGlobalAdmin ? collect() : collect($user ? $user->getSubordinateUserIds() : []);
+        if (!$isGlobalAdmin && $user) {
+            $subordinateIds->push($user->id);
+        }
 
         // Step 1: Get all divisions
         $divisions = DB::connection('pgsql_master')

@@ -44,6 +44,9 @@ class StatsOverviewWidget extends BaseWidget
         $user = auth()->user();
         $isGlobalAdmin = $user ? $user->isGlobalAdmin() : false;
         $subordinateIds = $isGlobalAdmin ? [] : ($user ? $user->getSubordinateUserIds() : []);
+        if (!$isGlobalAdmin && $user) {
+            $subordinateIds[] = $user->id; // Include self
+        }
         $scopeIds = empty($subordinateIds) ? [-1] : $subordinateIds; // fallback invalid ID if no subordinate
 
         $applyBaseScope = fn($q) => $isGlobalAdmin ? $q : $q->whereIn('id', $scopeIds);
